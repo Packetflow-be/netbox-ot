@@ -1,7 +1,7 @@
 {% extends 'generic/_base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Consistency checks" %}{% if site %}: {{ site }}{% endif %}{% endblock %}
+{% block title %}{% trans "Consistency checks" %}{% if site %}: {{ site }}{% endif %}{% if tenant %}: {{ tenant }}{% endif %}{% endblock %}
 
 {% block subtitle %}
   <div class="text-secondary">
@@ -13,11 +13,15 @@
   <div class="card">
     <div class="card-body">
       <form method="get" class="row g-3 align-items-end">
-        <div class="col-md-5">
+        <div class="col-md-3">
+          <label class="form-label" for="{{ form.tenant_id.id_for_label }}">{{ form.tenant_id.label }}</label>
+          {{ form.tenant_id }}
+        </div>
+        <div class="col-md-3">
           <label class="form-label" for="{{ form.site_id.id_for_label }}">{{ form.site_id.label }}</label>
           {{ form.site_id }}
         </div>
-        <div class="col-md-5">
+        <div class="col-md-4">
           <label class="form-label" for="{{ form.severity.id_for_label }}">{{ form.severity.label }}</label>
           {{ form.severity }}
         </div>

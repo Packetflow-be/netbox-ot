@@ -1082,7 +1082,13 @@ class AccessMapFilterForm(forms.Form):
             self.fields[name].widget.attrs['class'] = 'form-check-input'
 
 
+class RiskRegisterFilterForm(forms.Form):
+    tenant_id = DynamicModelChoiceField(queryset=Tenant.objects.all(), required=False, label=_('Tenant'))
+    site_id = DynamicModelChoiceField(queryset=Site.objects.all(), required=False, label=_('Site'))
+
+
 class ChecksFilterForm(forms.Form):
+    tenant_id = DynamicModelChoiceField(queryset=Tenant.objects.all(), required=False, label=_('Tenant'))
     site_id = DynamicModelChoiceField(queryset=Site.objects.all(), required=False, label=_('Site'))
     severity = forms.MultipleChoiceField(
         label=_('Severity'), required=False,

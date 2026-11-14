@@ -12,6 +12,7 @@ from dcim.models import Site
 from extras.ui.panels import CustomFieldsPanel, TagsPanel
 from netbox.ui import actions, attrs, layout, panels
 from netbox.views import generic
+from tenancy.models import Tenant
 from utilities.views import ContentTypePermissionRequiredMixin, ViewTab, register_model_view
 
 from . import filtersets, forms, risk, risk_scope, sl, tables
@@ -34,6 +35,7 @@ from .models import (
 )
 from .overview import build_overview, network_assets
 from .register import build_register, register_csv
+from .risk_register import build_risk_register, risk_register_csv
 from .rules import build_rules, rules_csv
 
 
@@ -585,7 +587,8 @@ class FlowHopBulkDeleteView(generic.BulkDeleteView):
 
 @register_model_view(RiskAssessment, 'list', path='', detail=False)
 class RiskAssessmentListView(generic.ObjectListView):
-    queryset = RiskAssessment.objects.select_related('zone', 'conduit', 'assessed_by', 'approved_by')
+    queryset = RiskAssessment.objects.select_related('zone', 'conduit', 'assessed_by', 'approved_by') \
+        .prefetch_related(*RiskAssessment.PREFETCH_SIBLINGS)
     filterset = filtersets.RiskAssessmentFilterSet
     filterset_form = forms.RiskAssessmentFilterForm
     table = tables.RiskAssessmentTable
@@ -1045,6 +1048,15 @@ class SiteAccessMapView(generic.ObjectView):
 # Consistency checks and the register
 #
 
+def _visible_scope(user, site, tenant):
+    """The site and tenant of a filter, or None for one the user may not view."""
+    if site is not None and not Site.objects.restrict(user, 'view').filter(pk=site.pk).exists():
+        site = None
+    if tenant is not None and not Tenant.objects.restrict(user, 'view').filter(pk=tenant.pk).exists():
+        tenant = None
+    return site, tenant
+
+
 class ChecksView(ContentTypePermissionRequiredMixin, View):
     """Consistency checks for one site (or all sites)."""
 
@@ -1053,20 +1065,78 @@ class ChecksView(ContentTypePermissionRequiredMixin, View):
 
     def get(self, request):
         form = forms.ChecksFilterForm(request.GET or None)
-        site, severities = None, None
+        site, tenant, severities = None, None, None
         if form.is_valid():
             site = form.cleaned_data.get('site_id')
+            tenant = form.cleaned_data.get('tenant_id')
             severities = form.cleaned_data.get('severity') or None
-        if site is not None and not Site.objects.restrict(request.user, 'view').filter(pk=site.pk).exists():
-            site = None
-        findings = run_checks(site=site, user=request.user, severities=severities)
+        site, tenant = _visible_scope(request.user, site, tenant)
+        findings = run_checks(site=site, user=request.user, severities=severities, tenant=tenant)
         return render(request, 'netbox_ot/checks.html', {
             'form': form,
             'site': site,
+            'tenant': tenant,
             'findings': findings,
             'summary': summary(findings),
             'checks': CHECKS,
         })
+
+
+def _risk_register_response(request, register, name):
+    response = HttpResponse(risk_register_csv(register), content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="{name}-ot-risk-register.csv"'
+    return response
+
+
+class RiskRegisterView(ContentTypePermissionRequiredMixin, View):
+    """The risk register of a tenant, a site or everything: what is above tolerable, unassessed or due, worst first."""
+
+    def get_required_permission(self):
+        return 'netbox_ot.view_riskassessment'
+
+    def get(self, request):
+        form = forms.RiskRegisterFilterForm(request.GET or None)
+        site = tenant = None
+        if form.is_valid():
+            site, tenant = form.cleaned_data.get('site_id'), form.cleaned_data.get('tenant_id')
+        site, tenant = _visible_scope(request.user, site, tenant)
+        register = build_risk_register(user=request.user, site=site, tenant=tenant)
+        if request.GET.get('export') == 'csv':
+            name = '-'.join(o.slug for o in (tenant, site) if o is not None) or 'all'
+            return _risk_register_response(request, register, name)
+        return render(request, 'netbox_ot/risk_register.html', {
+            'form': form,
+            'register': register,
+            'export_query': request.GET.urlencode(),
+        })
+
+
+def _tenant_zone_count(tenant):
+    return Zone.objects.filter(tenant=tenant).count()
+
+
+@register_model_view(Tenant, name='ot_risk_register', path='ot-risk-register')
+class TenantRiskRegisterView(generic.ObjectView):
+    """The risk register of a tenant, as a tab on the tenant: all its zones and conduits, on every site."""
+    queryset = Tenant.objects.all()
+    template_name = 'netbox_ot/tenant_risk_register.html'
+    tab = ViewTab(
+        label=_('OT risk register'),
+        badge=_tenant_zone_count,
+        permission='netbox_ot.view_riskassessment',
+        weight=2120,
+        hide_if_empty=True,
+    )
+
+    def get(self, request, **kwargs):
+        if request.GET.get('export') == 'csv':
+            tenant = self.get_object(**kwargs)
+            return _risk_register_response(
+                request, build_risk_register(user=request.user, tenant=tenant), tenant.slug)
+        return super().get(request, **kwargs)
+
+    def get_extra_context(self, request, instance):
+        return {'register': build_risk_register(user=request.user, tenant=instance), 'export_query': ''}
 
 
 def _register_badge(site):

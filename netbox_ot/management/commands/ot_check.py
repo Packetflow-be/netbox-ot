@@ -3,6 +3,7 @@ import json
 from django.core.management.base import CommandError
 
 from dcim.models import Site
+from tenancy.models import Tenant
 
 from netbox_ot.branching import BranchCommand
 from netbox_ot.checks import CHECKS, SEVERITIES, run_checks
@@ -13,6 +14,7 @@ class Command(BranchCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--site', help='Slug of the site to check (default: all sites)')
+        parser.add_argument('--tenant', help='Slug of a tenant: only its zones, the conduits and flows that touch them')
         parser.add_argument('--severity', action='append', choices=SEVERITIES,
                             help='Only report this severity (repeatable)')
         parser.add_argument('--check', action='append', choices=sorted(CHECKS),
@@ -28,7 +30,13 @@ class Command(BranchCommand):
                 site = Site.objects.get(slug=options['site'])
             except Site.DoesNotExist:
                 raise CommandError(f"Site {options['site']!r} not found")
-        findings = run_checks(site=site, checks=options['check'], severities=options['severity'])
+        tenant = None
+        if options['tenant']:
+            try:
+                tenant = Tenant.objects.get(slug=options['tenant'])
+            except Tenant.DoesNotExist:
+                raise CommandError(f"Tenant {options['tenant']!r} not found")
+        findings = run_checks(site=site, checks=options['check'], severities=options['severity'], tenant=tenant)
         if options['json']:
             self.stdout.write(json.dumps([{
                 'check': f.check, 'severity': f.severity, 'object': f'{f.obj._meta.label_lower}:{f.obj.pk}',

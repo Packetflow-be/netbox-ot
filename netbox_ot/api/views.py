@@ -87,7 +87,7 @@ class RequirementStatusViewSet(NetBoxModelViewSet):
 
 class RiskAssessmentViewSet(NetBoxModelViewSet):
     queryset = RiskAssessment.objects.select_related('zone__site', 'conduit__site', 'assessed_by', 'approved_by') \
-        .prefetch_related('tags')
+        .prefetch_related('tags', *RiskAssessment.PREFETCH_SIBLINGS)
     serializer_class = RiskAssessmentSerializer
     filterset_class = filtersets.RiskAssessmentFilterSet
 

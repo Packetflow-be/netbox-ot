@@ -1,0 +1,11 @@
+{% extends 'generic/object.html' %}
+{% load i18n %}
+
+{% block content %}
+  <div class="mb-3 d-print-none">
+    <a href="?export=csv" class="btn btn-sm btn-outline-primary"><i class="mdi mdi-download"></i> {% trans "Risk register (CSV)" %}</a>
+    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="mdi mdi-printer"></i> {% trans "Print" %}</button>
+    <a href="{% url 'plugins:netbox_ot:checks' %}?tenant_id={{ object.pk }}" class="btn btn-sm btn-outline-secondary"><i class="mdi mdi-check-all"></i> {% trans "Checks" %}</a>
+  </div>
+  {% include 'netbox_ot/inc/risk_register_table.html' %}
+{% endblock %}

@@ -37,9 +37,32 @@ From the API and the command line:
 
 - `GET /api/plugins/ot/checks/?site_id=<id>[&severity=error,warning][&check=<id>,...]`: the findings of a
   site. Needs `view_zone`.
-- `manage.py ot_check [--site <slug>] [--severity ...] [--check ...] [--fail-on error|warning|info|never]
-  [--json]` runs the same checks and exits with status 1 when there is a finding at `--fail-on` or worse
-  (default: error), so a nightly job or a CI pipeline can watch the model.
+- `manage.py ot_check [--site <slug>] [--tenant <slug>] [--severity ...] [--check ...]
+  [--fail-on error|warning|info|never] [--json]` runs the same checks and exits with status 1 when there is a
+  finding at `--fail-on` or worse (default: error), so a nightly job or a CI pipeline can watch the model.
+
+The checks page and `ot_check` also take a **tenant**: then only the zones of that tenant (on every site, or on
+the site given), the conduits that join one of them and the flows that start or end in one of them are checked.
+An MSP or integrator looks after several customers this way.
+
+## Risk register
+
+*OT > Risk and requirements > Risk register* lists every zone and conduit in scope with where its risk stands, worst
+first. Filter it by tenant, by site, or both; a tenant also has an *OT risk register* tab. It is printable and
+exported as CSV.
+
+| Status | When |
+|---|---|
+| Above tolerable | The latest approved assessment has a residual risk above its tolerable risk |
+| No approved assessment | No approved assessment yet; a draft in progress is shown with the step it is at, else an *Assess* button starts an initial one |
+| Review due | Approved and within tolerable, but the next review date has passed |
+| Within tolerable | Approved, within tolerable and not due |
+
+Per row: the assessment (and a newer one in progress), its step, the unmitigated, residual and tolerable risk, the
+next review, the ways in (flows into the zone or carried by the conduit, with how many are remote access) and the
+errors and warnings of the checks on the zone or conduit and what is in it. External zones (a supplier, the
+internet) are outside the system under consideration and not listed; a conduit is listed for a tenant when it joins
+one of the tenant's zones.
 
 ## Zone register
 
