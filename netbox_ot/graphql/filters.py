@@ -97,6 +97,7 @@ class RiskAssessmentFilter(PrimaryModelFilter):
     status: StrFilterLookup[str] | None = strawberry_django.filter_field()
     residual_risk: StrFilterLookup[str] | None = strawberry_django.filter_field()
     tolerable_risk: StrFilterLookup[str] | None = strawberry_django.filter_field()
+    risk_accepted_by_id: ID | None = strawberry_django.filter_field()
 
 
 @register_filter(models.SystemRequirement, lookups=True)

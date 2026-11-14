@@ -259,6 +259,9 @@ class RiskAssessmentSerializer(PrimaryModelSerializer):
     tolerable_risk = ChoiceField(choices=RiskLevelChoices, allow_blank=True, required=False)
     residual_above_tolerable = serializers.BooleanField(read_only=True)
     current_step = serializers.CharField(read_only=True)
+    sl_target = SecurityLevelVectorField()
+    risk_accepted_by = ContactSerializer(nested=True, required=False, allow_null=True)
+    risk_accepted = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = RiskAssessment
@@ -267,7 +270,9 @@ class RiskAssessmentSerializer(PrimaryModelSerializer):
             'approved_on', 'approved_by', 'next_review', 'method', 'document', 'threats', 'vulnerabilities',
             'consequences', 'unmitigated_likelihood', 'unmitigated_impact', 'unmitigated_risk', 'countermeasures',
             'residual_likelihood', 'residual_impact', 'residual_risk', 'tolerable_risk',
-            'residual_above_tolerable', 'current_step', 'description', 'owner', 'comments', 'tags', 'custom_fields',
+            'residual_above_tolerable', 'sl_target', 'risk_accepted_by', 'risk_accepted_on', 'risk_accepted_until',
+            'risk_acceptance', 'risk_accepted', 'current_step', 'description', 'owner', 'comments', 'tags',
+            'custom_fields',
             'created', 'last_updated',
         )
         brief_fields = ('id', 'url', 'display', 'kind', 'status', 'assessed_on', 'description')

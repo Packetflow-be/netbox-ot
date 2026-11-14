@@ -416,6 +416,9 @@ class RiskAssessmentFilterSet(PrimaryModelFilterSet):
         method='filter_residual_above_tolerable', label=_('Residual risk above tolerable'),
     )
     review_due = django_filters.BooleanFilter(method='filter_review_due', label=_('Review due'))
+    risk_accepted = django_filters.BooleanFilter(
+        method='filter_risk_accepted', label=_('Residual risk above tolerable, accepted'),
+    )
     assessed_by_id = django_filters.ModelMultipleChoiceFilter(
         queryset=Contact.objects.all(),
         distinct=False,
@@ -426,11 +429,17 @@ class RiskAssessmentFilterSet(PrimaryModelFilterSet):
         distinct=False,
         label=_('Approved by (ID)'),
     )
+    risk_accepted_by_id = django_filters.ModelMultipleChoiceFilter(
+        queryset=Contact.objects.all(),
+        distinct=False,
+        label=_('Risk accepted by (ID)'),
+    )
 
     class Meta:
         model = RiskAssessment
         fields = ('id', 'assessed_on', 'approved_on', 'next_review', 'method', 'description',
-                  'unmitigated_likelihood', 'unmitigated_impact', 'residual_likelihood', 'residual_impact')
+                  'unmitigated_likelihood', 'unmitigated_impact', 'residual_likelihood', 'residual_impact',
+                  'risk_accepted_on', 'risk_accepted_until')
 
     def search(self, queryset, name, value):
         if not value.strip():
@@ -451,6 +460,18 @@ class RiskAssessmentFilterSet(PrimaryModelFilterSet):
             return queryset
         q = Q(zone__site__in=value) | Q(conduit__site__in=value) | Q(conduit__zones__site__in=value)
         return queryset.filter(q).distinct()
+
+    def filter_risk_accepted(self, queryset, name, value):
+        """Above tolerable with an acceptance that is complete and has not ended (as RiskAssessment.risk_accepted)."""
+        if value is None:
+            return queryset
+        levels = RiskLevelChoices.values()
+        above = Q()
+        for i, tolerable in enumerate(levels):
+            above |= Q(tolerable_risk=tolerable, residual_risk__in=levels[i + 1:])
+        q = above & Q(risk_accepted_by__isnull=False, risk_accepted_on__isnull=False) & ~Q(risk_acceptance='') & (
+            Q(risk_accepted_until__isnull=True) | Q(risk_accepted_until__gte=timezone.localdate()))
+        return queryset.filter(q) if value else queryset.exclude(q)
 
     def filter_residual_above_tolerable(self, queryset, name, value):
         if value is None:

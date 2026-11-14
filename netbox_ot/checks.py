@@ -357,10 +357,36 @@ def no_risk_assessment(scope):
 @check('residual-above-tolerable', _('Residual risk above tolerable'), ERROR)
 def residual_above_tolerable(scope):
     for ra in scope.latest_assessments().values():
-        if ra.residual_above_tolerable:
-            yield ra, _('{subject}: residual risk {residual} is above the tolerable {tolerable} ({ra})').format(
+        if ra.residual_above_tolerable and not ra.risk_accepted:
+            message = _('{subject}: residual risk {residual} is above the tolerable {tolerable} ({ra})').format(
                 subject=ra.subject, residual=ra.get_residual_risk_display(),
                 tolerable=ra.get_tolerable_risk_display(), ra=ra)
+            if ra.acceptance_expired:
+                message = _('{message}; its acceptance ended on {date}').format(
+                    message=message, date=ra.risk_accepted_until)
+            yield ra, message
+
+
+@check('risk-accepted', _('Residual risk above tolerable, accepted'), INFO)
+def risk_accepted(scope):
+    for ra in scope.latest_assessments().values():
+        if ra.risk_accepted:
+            yield ra, _('{subject}: residual risk {residual} above the tolerable {tolerable}, accepted by {who} '
+                        '{until}').format(
+                subject=ra.subject, residual=ra.get_residual_risk_display(),
+                tolerable=ra.get_tolerable_risk_display(), who=ra.risk_accepted_by,
+                until=_('until {date}').format(date=ra.risk_accepted_until) if ra.risk_accepted_until
+                else _('without an end date'))
+
+
+@check('sl-target-differs', _('SL-T differs from its risk assessment'), WARNING)
+def sl_target_differs(scope):
+    for ra in scope.latest_assessments().values():
+        if ra.sl_target_differs:
+            subject = ra.subject
+            message = _('{subject} has SL-T {current}, its approved risk assessment ({ra}) arrived at {target}')
+            yield subject, message.format(
+                subject=subject, current=subject.sl_target_display or '-', ra=ra, target=ra.sl_target_display)
 
 
 @check('risk-assessment-due', _('Risk assessment due for review'), WARNING)

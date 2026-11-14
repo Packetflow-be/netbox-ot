@@ -34,7 +34,7 @@
         {% for group in groups %}
           {% for r in group.list %}
             <tr{% if forloop.first %} id="ot-bucket-{{ group.grouper }}"{% endif %}>
-              <td class="text-nowrap">{% badge r.bucket_label bg_color=r.bucket_color %}</td>
+              <td class="text-nowrap">{% badge r.bucket_label bg_color=r.bucket_color %}{% if r.accepted_until %}<div class="small text-muted">{% blocktrans with date=r.accepted_until|date:"Y-m-d" %}until {{ date }}{% endblocktrans %}</div>{% endif %}</td>
               <td>
                 {{ r.subject|linkify }}
                 <span class="text-muted small">{% if r.kind == 'conduit' %}{% trans "conduit" %}{% elif r.purdue_level %}L{{ r.purdue_level }}{% endif %}{% if r.sl_target %} · SL-T {{ r.sl_target }}{% endif %}</span>

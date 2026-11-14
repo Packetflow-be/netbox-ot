@@ -199,6 +199,9 @@ class RiskAssessmentTable(PrimaryModelTable):
     unmitigated_risk = columns.ChoiceFieldColumn(verbose_name=_('Unmitigated'))
     residual_risk = columns.ChoiceFieldColumn(verbose_name=_('Residual'))
     tolerable_risk = columns.ChoiceFieldColumn(verbose_name=_('Tolerable'))
+    sl_target = tables.Column(verbose_name=_('SL-T'), accessor=tables.A('sl_target_display'), order_by=('sl_target',))
+    risk_accepted_by = tables.Column(verbose_name=_('Risk accepted by'), linkify=True)
+    risk_accepted_until = columns.DateColumn(verbose_name=_('Accepted until'))
     current_step = tables.Column(verbose_name=_('Step'), orderable=False, empty_values=(),
                                  attrs={'td': {'class': 'text-nowrap'}})
     tags = columns.TagColumn(url_name='plugins:netbox_ot:riskassessment_list')
@@ -216,7 +219,7 @@ class RiskAssessmentTable(PrimaryModelTable):
             'approved_on',
             'next_review', 'method', 'unmitigated_risk', 'residual_risk', 'tolerable_risk', 'current_step',
             'unmitigated_likelihood', 'unmitigated_impact', 'residual_likelihood', 'residual_impact', 'document',
-            'description',
+            'sl_target', 'risk_accepted_by', 'risk_accepted_on', 'risk_accepted_until', 'description',
             'comments', 'tags', 'created', 'last_updated',
         )
         default_columns = (

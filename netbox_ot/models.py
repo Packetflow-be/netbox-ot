@@ -875,6 +875,35 @@ class RiskAssessment(PrimaryModel):
         help_text=_('The highest risk the organisation accepts here'),
     )
     document = models.URLField(verbose_name=_('document'), blank=True, help_text=_('Link to the full report'))
+    # IEC 62443-3-2: a detailed assessment ends in the target security level of its zone or conduit
+    sl_target = ArrayField(
+        base_field=models.PositiveSmallIntegerField(),
+        size=7,
+        verbose_name=_('SL-T'),
+        blank=True,
+        null=True,
+        validators=[sl.validate],
+        help_text=_('The security level target this assessment arrives at, per FR (IAC, UC, SI, DC, RDF, TRE, RA)'),
+    )
+    # A residual risk above the tolerable risk that the asset owner accepts, explicitly and for a while
+    risk_accepted_by = models.ForeignKey(
+        to='tenancy.Contact',
+        on_delete=models.PROTECT,
+        related_name='ot_risk_acceptances',
+        verbose_name=_('risk accepted by'),
+        blank=True,
+        null=True,
+        help_text=_('The asset owner who accepts the residual risk above the tolerable risk'),
+    )
+    risk_accepted_on = models.DateField(verbose_name=_('risk accepted on'), blank=True, null=True)
+    risk_accepted_until = models.DateField(
+        verbose_name=_('risk accepted until'), blank=True, null=True,
+        help_text=_('The acceptance ends here: treat the risk or accept it again by then'),
+    )
+    risk_acceptance = models.TextField(
+        verbose_name=_('reason for accepting'), blank=True,
+        help_text=_('Why the residual risk is accepted, and any conditions'),
+    )
 
     clone_fields = ('zone', 'conduit', 'kind', 'method', 'tolerable_risk')
 
@@ -897,10 +926,49 @@ class RiskAssessment(PrimaryModel):
             return False
         return order.index(self.residual_risk) > order.index(self.tolerable_risk)
 
+    @property
+    def acceptance_recorded(self):
+        return bool(self.risk_accepted_by_id and self.risk_accepted_on and self.risk_acceptance.strip())
+
+    @property
+    def acceptance_expired(self):
+        return bool(self.acceptance_recorded and self.risk_accepted_until
+                    and self.risk_accepted_until < timezone.localdate())
+
+    @property
+    def risk_accepted(self):
+        """The residual risk is above tolerable, and the asset owner accepted it (an acceptance that has not ended)."""
+        return self.residual_above_tolerable and self.acceptance_recorded and not self.acceptance_expired
+
+    @property
+    def sl_target_display(self):
+        return sl.display(self.sl_target)
+
+    @property
+    def sl_target_differs(self):
+        """The SL-T this assessment arrives at differs from the SL-T recorded on its zone or conduit."""
+        subject = self.subject
+        return bool(self.sl_target and subject is not None and list(self.sl_target) != list(subject.sl_target or []))
+
     def clean(self):
         super().clean()
         if bool(self.zone_id) == bool(self.conduit_id):
             raise ValidationError(_('A risk assessment is of either a zone or a conduit.'))
+        # An acceptance says who, when and why; a partial one would look accepted to a reader but not to the checks
+        acceptance = (self.risk_accepted_by_id, self.risk_accepted_on, self.risk_accepted_until,
+                      self.risk_acceptance.strip())
+        if any(acceptance):
+            errors = {}
+            if not self.risk_accepted_by_id:
+                errors['risk_accepted_by'] = _('Who accepts the risk?')
+            if not self.risk_accepted_on:
+                errors['risk_accepted_on'] = _('When was it accepted?')
+            if not self.risk_acceptance.strip():
+                errors['risk_acceptance'] = _('Why is it accepted?')
+            if self.risk_accepted_on and self.risk_accepted_until and self.risk_accepted_until < self.risk_accepted_on:
+                errors['risk_accepted_until'] = _('Ends before it was accepted.')
+            if errors:
+                raise ValidationError(errors)
         if self.status == RiskAssessmentStatusChoices.APPROVED and not self.approved_on:
             raise ValidationError({'approved_on': _('An approved assessment has an approval date.')})
         if self.approved_on and self.approved_on < self.assessed_on:
