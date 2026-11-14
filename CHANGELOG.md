@@ -70,6 +70,11 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
 
 ### Bug Fixes
 
+- **Constrained permissions in the zone register**: with a permission constrained to one site, the register (page,
+  CSV and `register/` API) listed the devices, VMs and prefixes of a visible zone, the zones and enforcing devices of
+  a visible conduit and the flow hops even where the user could not view them, and counted a conduit's flows the
+  user could not view. These lists now use `RestrictedPrefetch`. A new test checks every netbox-ot page, report,
+  report API and GraphQL query with a site-constrained user; the docs (*Permissions*) say what constraints cover.
 - Zeek import: COTP-only connections to an S7 PLC count under S7comm instead of making a second, unidentified
   flow; a service Zeek guessed on a tenth or less of a port's connections (2 "smb" among Telnet on tcp/23) joins
   the unidentified rest; S7 User-Data requests are named by their subfunction (`Read SZL`)

@@ -145,6 +145,16 @@ The plugin uses NetBox's object permissions for its models (zone, conduit, flow,
 system requirement, requirement status, industrial service, fieldbus). Users who view flows also need view
 permission on zones (a flow shows its zones). The access map needs `view_flow`; the checks and the zone register need `view_zone`.
 
+Permissions with constraints work as for NetBox's own objects: give an integrator or a plant team
+`view` on zones with `{"site__slug": "plant-1"}` (and on flows with
+`{"source_zone__site__slug": "plant-1", "destination_zone__site__slug": "plant-1"}`) and every list, object page,
+report (access map, checks, register, OT overview, risk register), report API, firewall rule export and
+GraphQL query shows only what those constraints allow. The register, the reports and GraphQL also limit the
+lists inside an object (a zone's devices, a conduit's zones and flows). As in NetBox itself, the REST API's
+nested references (a zone's `devices`, a conduit's `zones`) and the zones column of the conduit list name the
+related objects without filtering them; restrict those users to GraphQL or the reports if names alone must stay
+hidden. `netbox_ot/tests/test_constrained_permissions.py` checks this on every release.
+
 ## Language
 
 The plugin is written in English and every user-facing string goes through Django's translation functions,

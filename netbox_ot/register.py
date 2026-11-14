@@ -10,10 +10,15 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
+from dcim.models import Device
+from ipam.models import Prefix
+from utilities.querysets import RestrictedPrefetch
+from virtualization.models import VirtualMachine
+
 from . import __version__, lifecycle, sl
 from .checks import run_checks, summary
 from .customfields import get_purdue_level
-from .models import Conduit, Flow, Zone
+from .models import Conduit, Flow, FlowHop, RiskAssessment, Zone
 
 ZONE_COLUMNS = (
     'zone', 'type', 'purdue_level', 'parent', 'sl_target', 'sl_achieved', 'accountable', 'wireless',
@@ -66,15 +71,23 @@ def build_register(site, user=None):
     def visible(qs):
         return qs.restrict(user, 'view') if user is not None else qs
 
+    def related(lookup, queryset):
+        # Object permissions only filter the top-level queryset: the lists inside a zone, conduit or flow (its
+        # devices, zones, flows, hops) are limited to what the user may view as well
+        return RestrictedPrefetch(lookup, user, 'view', queryset=queryset) if user is not None else lookup
+
     zones = visible(Zone.objects.filter(site=site)).select_related('parent', 'accountable').prefetch_related(
-        'devices', 'virtual_machines', 'prefixes', 'risk_assessments')
+        related('devices', Device.objects.all()), related('virtual_machines', VirtualMachine.objects.all()),
+        related('prefixes', Prefix.objects.all()), related('risk_assessments', RiskAssessment.objects.all()))
     conduits = visible(Conduit.objects.filter(zones__site=site) | Conduit.objects.filter(site=site)).distinct()
     conduits = conduits.select_related('accountable').prefetch_related(
-        'zones', 'enforcing_devices', 'enforcing_virtual_machines', 'flows', 'risk_assessments')
+        related('zones', Zone.objects.all()), related('enforcing_devices', Device.objects.all()),
+        related('enforcing_virtual_machines', VirtualMachine.objects.all()), related('flows', Flow.objects.all()),
+        related('risk_assessments', RiskAssessment.objects.all()))
     flows = visible(Flow.objects.filter(source_zone__site=site) | Flow.objects.filter(destination_zone__site=site))
     flows = flows.select_related('source_zone', 'destination_zone', 'conduit', 'decided_by').prefetch_related(
-        'hops__device', 'hops__virtual_machine', 'hops__tunnel').order_by('source_zone__name',
-                                                                         'destination_zone__name', 'name')
+        related('hops', FlowHop.objects.select_related('device', 'virtual_machine', 'tunnel')),
+    ).order_by('source_zone__name', 'destination_zone__name', 'name')
     zones = list(zones)
     ends = lifecycle.end_of_support({d.pk: d for z in zones for d in z.devices.all()}.values())
     zone_rows = []
