@@ -1,0 +1,79 @@
+{% load i18n %}
+<div class="d-flex flex-wrap gap-2 mb-3">
+  {% for key, label, color, count in register.buckets %}
+    <a class="card card-sm text-reset text-decoration-none ot-register-bucket" href="#ot-bucket-{{ key }}">
+      <div class="card-body py-2 px-3 d-flex align-items-center gap-2">
+        <span class="badge text-bg-{{ color }} fs-5">{{ count }}</span>
+        <span>{{ label }}</span>
+      </div>
+    </a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover table-sm mb-0">
+      <thead>
+        <tr>
+          <th>{% trans "Status" %}</th>
+          <th>{% trans "Zone / conduit" %}</th>
+          <th>{% trans "Site" %}</th>
+          {% if not register.tenant %}<th>{% trans "Tenant" %}</th>{% endif %}
+          <th>{% trans "Assessment" %}</th>
+          <th>{% trans "Step" %}</th>
+          <th>{% trans "Unmitigated" %}</th>
+          <th>{% trans "Residual" %}</th>
+          <th>{% trans "Tolerable" %}</th>
+          <th>{% trans "Next review" %}</th>
+          <th title="{% trans 'Flows into the zone, or carried by the conduit; of which remote access' %}">{% trans "Ways in" %}</th>
+          <th>{% trans "Findings" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% regroup register.rows by bucket as groups %}
+        {% for group in groups %}
+          {% for r in group.list %}
+            <tr{% if forloop.first %} id="ot-bucket-{{ group.grouper }}"{% endif %}>
+              <td class="text-nowrap">{% badge r.bucket_label bg_color=r.bucket_color %}</td>
+              <td>
+                {{ r.subject|linkify }}
+                <span class="text-muted small">{% if r.kind == 'conduit' %}{% trans "conduit" %}{% elif r.purdue_level %}L{{ r.purdue_level }}{% endif %}{% if r.sl_target %} · SL-T {{ r.sl_target }}{% endif %}</span>
+              </td>
+              <td>{{ r.site|linkify|placeholder }}</td>
+              {% if not register.tenant %}<td>{% for t in r.tenants %}{{ t|linkify }}{% if not forloop.last %}, {% endif %}{% empty %}{{ ''|placeholder }}{% endfor %}</td>{% endif %}
+              <td class="text-nowrap">
+                {% if r.approved %}<a href="{{ r.approved.get_absolute_url }}">{{ r.approved.get_kind_display|cut:" (ZCR 2)"|cut:" (ZCR 5)" }} {{ r.approved.assessed_on|date:"Y-m-d" }}</a>{% endif %}
+                {% if r.in_progress %}
+                  {% if r.approved %}<br>{% endif %}
+                  <a href="{{ r.in_progress.get_absolute_url }}">{{ r.in_progress.get_kind_display|cut:" (ZCR 2)"|cut:" (ZCR 5)" }} {{ r.in_progress.assessed_on|date:"Y-m-d" }}</a>
+                  {% badge r.in_progress.get_status_display bg_color=r.in_progress.get_status_color %}
+                {% endif %}
+                {% if not r.approved and not r.in_progress %}
+                  {% if perms.netbox_ot.add_riskassessment %}
+                    <a class="btn btn-sm btn-outline-primary d-print-none" href="{% url 'plugins:netbox_ot:riskassessment_add' %}?{{ r.kind }}={{ r.subject.pk }}&kind=initial&return_url={{ request.get_full_path|urlencode }}"><i class="mdi mdi-plus-thick"></i> {% trans "Assess" %}</a>
+                  {% else %}{{ ''|placeholder }}{% endif %}
+                {% endif %}
+              </td>
+              <td class="small">{{ r.step|default:"" }}</td>
+              {% for level in r.levels %}
+                <td>{% if level %}{% badge level.0 bg_color=level.1 %}{% else %}{{ ''|placeholder }}{% endif %}</td>
+              {% endfor %}
+              <td class="text-nowrap">{% if r.next_review %}<span{% if r.bucket == 'due' %} class="text-danger"{% endif %}>{{ r.next_review|date:"Y-m-d" }}</span>{% else %}{{ ''|placeholder }}{% endif %}</td>
+              <td class="text-nowrap">{{ r.ways_in }}{% if r.remote %} <span class="badge text-bg-red" title="{% trans 'remote access' %}">{{ r.remote }} {% trans "remote" %}</span>{% endif %}</td>
+              <td class="text-nowrap">
+                {% if r.findings.error %}<span class="badge text-bg-red">{{ r.findings.error }}</span>{% endif %}
+                {% if r.findings.warning %}<span class="badge text-bg-orange">{{ r.findings.warning }}</span>{% endif %}
+                {% if not r.findings.error and not r.findings.warning %}<span class="text-muted">0</span>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        {% empty %}
+          <tr><td colspan="12" class="text-muted">{% trans "No zones or conduits in this scope." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer small text-muted">
+    {% blocktrans with generated=register.generated|date:"Y-m-d H:i" version=register.version %}Generated {{ generated }} by netbox-ot {{ version }}. Per zone and conduit: the latest approved risk assessment counts; a newer one that is not approved yet is shown under it. External zones (suppliers, the internet) are outside the system under consideration and not listed. Findings: errors and warnings of the checks on the zone or conduit and what is in it.{% endblocktrans %}
+  </div>
+</div>

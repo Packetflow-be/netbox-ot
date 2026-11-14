@@ -204,9 +204,9 @@ def steps(assessment, others=()):
     return result
 
 
-def current_step(assessment):
-    """The title of the step the assessment is at (by its own fields), or '' when all are done."""
-    for item in steps(assessment):
+def current_step(assessment, others=()):
+    """The title of the step the assessment is at, or '' when all are done; `others` as for steps()."""
+    for item in steps(assessment, others):
         if item['state'] in ('current', 'attention'):
             return item['title']
     return ''

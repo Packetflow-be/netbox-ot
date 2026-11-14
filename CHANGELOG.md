@@ -19,6 +19,18 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
   tolerable risk, method and the initial likelihood and impact filled in), add countermeasures or update the
   residual risk when it is above tolerable, and approve (status and today's date filled in). "Recorded as" links
   to the other assessment.
+- **Risk register** ([#46](https://github.com/Packetflow-be/netbox-ot/issues/46)): a new page under *Risk and
+  requirements*, and an *OT risk register* tab on a tenant, listing every zone and conduit with where its risk
+  stands, worst first (above tolerable, no approved assessment, review due, within tolerable), with the assessment
+  and its step, the three risk levels, next review, ways in (remote access counted) and check findings. Filter by
+  tenant and site; printable, CSV export.
+- **Checks per tenant**: the checks page and `ot_check --tenant <slug>` check the zones of one tenant, the
+  conduits that join them and their flows, across sites.
+- **The list's *Step* column counts the other assessments** of the zone or conduit, as the assessment's page
+  does: an initial assessment with a detailed one is past the detailed step (also `current_step` in the API).
+- **Risk matrix marks centred** ([#48](https://github.com/Packetflow-be/netbox-ot/issues/48)): U, R and T sit
+  in the middle of a round mark, and the corner label no longer breaks "Likelihood" mid-word
+  ([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)).
 - **Lists open the assessment from the first column.** The risk assessment list and the panels on zones and
   conduits start with an *Assessment* column ("Detailed 2026-10-01") that opens it; the zone or conduit keeps its
   own column. The status badge in the requirement status list opens that status.

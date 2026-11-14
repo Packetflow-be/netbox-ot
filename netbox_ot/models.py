@@ -954,10 +954,28 @@ class RiskAssessment(PrimaryModel):
     def residual_place(self):
         return self._place('residual')
 
+    # Prefetch these on a list of assessments, so `current_step` needs no query per assessment
+    PREFETCH_SIBLINGS = ('zone__risk_assessments', 'conduit__risk_assessments')
+
+    def siblings(self):
+        """The other assessments of the same zone or conduit (from the prefetch when there is one)."""
+        if not (self.zone_id or self.conduit_id):
+            return []
+        subject = self.zone if self.zone_id else self.conduit
+        if 'risk_assessments' in getattr(subject, '_prefetched_objects_cache', {}):
+            return [ra for ra in subject.risk_assessments.all() if ra.pk != self.pk]
+        if not self.pk:
+            return list(subject.risk_assessments.all())
+        return list(subject.risk_assessments.exclude(pk=self.pk))
+
     @property
     def current_step(self):
-        """The IEC 62443-3-2 step this assessment is at, by its own fields; empty when nothing is left."""
-        return risk.current_step(self)
+        """
+        The IEC 62443-3-2 step this assessment is at, empty when nothing is left. The other assessments of the same
+        zone or conduit count, as on the assessment's page: an initial assessment with a detailed one is past the
+        detailed step.
+        """
+        return risk.current_step(self, self.siblings())
 
     def get_status_color(self):
         return RiskAssessmentStatusChoices.colors.get(self.status)

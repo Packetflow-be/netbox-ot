@@ -38,6 +38,10 @@ groups = (
     )),
     (_('Risk and requirements'), (
         PluginMenuItem(
+            link='plugins:netbox_ot:risk_register', link_text=_('Risk register'),
+            permissions=['netbox_ot.view_riskassessment'],
+        ),
+        PluginMenuItem(
             link='plugins:netbox_ot:riskassessment_list', link_text=_('Risk assessments'),
             permissions=['netbox_ot.view_riskassessment'], buttons=_buttons('riskassessment'),
         ),

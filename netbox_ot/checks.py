@@ -73,9 +73,12 @@ def check(check_id, title, severity):
 
 
 class Scope:
-    """The zones, conduits and flows of one site (or of all sites), limited to what `user` may view."""
+    """
+    The zones, conduits and flows of one site (or of all sites), limited to what `user` may view. With a tenant, only
+    the zones of that tenant, the conduits that join one of them and the flows that start or end in one of them.
+    """
 
-    def __init__(self, site=None, user=None):
+    def __init__(self, site=None, user=None, tenant=None):
         def visible(qs):
             return qs.restrict(user, 'view') if user is not None else qs
 
@@ -86,11 +89,16 @@ class Scope:
             zones = zones.filter(site=site)
             conduits = conduits.filter(Q(site=site) | Q(zones__site=site)).distinct()
             flows = flows.filter(Q(source_zone__site=site) | Q(destination_zone__site=site))
-        self.site, self.user = site, user
-        self.zones = list(zones.select_related('parent', 'site').prefetch_related(
+        if tenant is not None:
+            zones = zones.filter(tenant=tenant)
+            conduits = conduits.filter(zones__tenant=tenant).distinct()
+            flows = flows.filter(Q(source_zone__tenant=tenant) | Q(destination_zone__tenant=tenant))
+        self.site, self.user, self.tenant = site, user, tenant
+        self.zones = list(zones.select_related('parent', 'site', 'tenant').prefetch_related(
             'devices__primary_ip4', 'devices__device_type', 'virtual_machines__primary_ip4', 'prefixes',
         ))
-        self.conduits = list(conduits.prefetch_related('zones', 'enforcing_devices', 'enforcing_virtual_machines'))
+        self.conduits = list(conduits.select_related('site').prefetch_related(
+            'zones__tenant', 'enforcing_devices', 'enforcing_virtual_machines'))
         self.flows = flows.select_related('source_zone', 'destination_zone')
         self.visible = visible
 
@@ -472,9 +480,9 @@ def stale_flow(scope):
             flow=flow, date=flow.last_seen.date(), days=days)
 
 
-def run_checks(site=None, user=None, checks=None, severities=None):
-    """All findings for a site (or all sites) as Finding objects, errors first."""
-    scope = Scope(site=site, user=user)
+def run_checks(site=None, user=None, checks=None, severities=None, tenant=None):
+    """All findings for a site (or all sites), optionally of one tenant, as Finding objects, errors first."""
+    scope = Scope(site=site, user=user, tenant=tenant)
     findings = []
     for check_id, chk in CHECKS.items():
         if checks and check_id not in checks:

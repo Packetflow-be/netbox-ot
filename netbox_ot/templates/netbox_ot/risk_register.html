@@ -1,0 +1,33 @@
+{% extends 'generic/_base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Risk register" %}{% if register.tenant %}: {{ register.tenant }}{% endif %}{% if register.site %}: {{ register.site }}{% endif %}{% endblock %}
+
+{% block subtitle %}
+  <div class="text-secondary">
+    {% trans "Every zone and conduit with where its risk stands (IEC 62443-3-2), worst first: above the tolerable risk, not assessed yet, due for review, within tolerable." %}
+  </div>
+{% endblock %}
+
+{% block content %}
+  <div class="card d-print-none">
+    <div class="card-body">
+      <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label" for="{{ form.tenant_id.id_for_label }}">{{ form.tenant_id.label }}</label>
+          {{ form.tenant_id }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="{{ form.site_id.id_for_label }}">{{ form.site_id.label }}</label>
+          {{ form.site_id }}
+        </div>
+        <div class="col-md-4 d-flex gap-2">
+          <button type="submit" class="btn btn-primary flex-fill"><i class="mdi mdi-filter"></i> {% trans "Show" %}</button>
+          <a class="btn btn-outline-primary" href="?{% if export_query %}{{ export_query }}&{% endif %}export=csv"><i class="mdi mdi-download"></i> CSV</a>
+          <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="mdi mdi-printer"></i></button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% include 'netbox_ot/inc/risk_register_table.html' %}
+{% endblock %}
