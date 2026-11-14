@@ -7,6 +7,7 @@ from .models import (
     IndustrialService,
     RequirementStatus,
     RiskAssessment,
+    RiskScenario,
     SystemRequirement,
     Zone,
 )
@@ -100,7 +101,21 @@ class RequirementStatusIndex(SearchIndex):
     display_attrs = ('zone', 'conduit', 'requirement', 'status')
 
 
+class RiskScenarioIndex(SearchIndex):
+    model = RiskScenario
+    fields = (
+        ('name', 100),
+        ('vulnerability', 2000),
+        ('consequence', 2000),
+        ('countermeasures', 2000),
+        ('description', 500),
+        ('comments', 5000),
+    )
+    display_attrs = ('assessment', 'threat_source', 'residual_risk')
+
+
 indexes = (
-    ZoneIndex, ConduitIndex, FlowIndex, RiskAssessmentIndex, SystemRequirementIndex, RequirementStatusIndex,
+    ZoneIndex, ConduitIndex, FlowIndex, RiskAssessmentIndex, RiskScenarioIndex, SystemRequirementIndex,
+    RequirementStatusIndex,
     FieldbusIndex, IndustrialServiceIndex,
 )

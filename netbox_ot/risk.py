@@ -134,6 +134,7 @@ def steps(assessment, others=()):
     """
     a = assessment
     initial = a.kind == RiskAssessmentKindChoices.INITIAL
+    scenarios = assessment_scenarios(a)
     earlier = next((o for o in others if o.kind == RiskAssessmentKindChoices.INITIAL), None)
     later = next((o for o in others if o.kind == RiskAssessmentKindChoices.DETAILED), None)
     exceeds = _above(a.unmitigated_risk, a.tolerable_risk)
@@ -170,6 +171,14 @@ def steps(assessment, others=()):
         step('detailed', _('Detailed assessment (ZCR 5)'), bool(later),
              [not later and _('a detailed assessment of this zone or conduit')], skipped=stop,
              note=_('Recorded as') if later else '', link=later)
+    elif scenarios:
+        # Threat scenarios carry the threats, vulnerabilities, consequences and likelihood and impact
+        unrated = [s.name for s in scenarios if not s.unmitigated_risk]
+        missing = [unrated and _('the unmitigated risk of {names}').format(names=', '.join(unrated)),
+                   not a.sl_target and _('the SL-T it arrives at')]
+        step('detailed', _('Detailed assessment (ZCR 5)'), True, missing, skipped=stop,
+             note=_('{n} threat scenarios').format(n=len(scenarios)) if len(scenarios) != 1 else _('1 threat scenario'),
+             field='sl_target')
     else:
         missing = [not a.threats and _('threats'), not a.vulnerabilities and _('vulnerabilities'),
                    not a.consequences and _('consequences'),
@@ -177,9 +186,10 @@ def steps(assessment, others=()):
                    not a.sl_target and _('the SL-T it arrives at')]
         # Threats make it a detailed assessment; the rest is asked for without holding the next steps back
         step('detailed', _('Detailed assessment (ZCR 5)'), bool(a.threats), missing, skipped=stop, field='threats')
-    # 4. Countermeasures
-    step('countermeasures', _('Countermeasures'), bool(a.countermeasures),
-         [not a.countermeasures and _('the countermeasures')], skipped=stop or initial and not a.countermeasures,
+    # 4. Countermeasures (on the assessment or on its scenarios)
+    treated = bool(a.countermeasures) or any(s.countermeasures for s in scenarios)
+    step('countermeasures', _('Countermeasures'), treated,
+         [not treated and _('the countermeasures')], skipped=stop or initial and not treated,
          field='countermeasures')
     # 5. Residual risk against tolerable risk
     over = a.residual_above_tolerable
@@ -214,6 +224,20 @@ def steps(assessment, others=()):
             item['state'] = 'current'
             break
     return result
+
+
+def assessment_scenarios(assessment):
+    """The threat scenarios of a saved assessment (from the prefetch when there is one)."""
+    if not getattr(assessment, 'pk', None):
+        return []
+    return list(assessment.scenarios.all())
+
+
+def worst(levels):
+    """The highest of these risk levels, or '' when none is set."""
+    order = [value for value, _label in RiskLevelChoices.CHOICES]
+    ranked = [level for level in levels if level in order]
+    return max(ranked, key=order.index) if ranked else ''
 
 
 def current_step(assessment, others=()):

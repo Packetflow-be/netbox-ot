@@ -24,7 +24,8 @@ Then:
 - expired or open-ended remote access, flows outside any conduit, writes through a broker without their
   topics, verdicts without a decider, stale flows;
 - residual risk above tolerable (unless the asset owner accepted it, then an info finding until the acceptance
-  ends), overdue risk assessments, an SL-T that differs from what the approved risk assessment arrived at
+  ends), overdue risk assessments, a risk lower than its worst threat scenario, an SL-T that differs from what
+  the approved risk assessment arrived at
   ([Risk assessments](risk-assessments.md#outcome-sl-t-and-accepting-a-residual-risk));
 - IEC 62443-3-3 requirements that apply at the SL-T without a status, and an SL-A claimed with a requirement
   not met ([System requirements](requirements.md));

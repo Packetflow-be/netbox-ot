@@ -13,7 +13,7 @@ from utilities.testing import create_test_device
 
 from netbox_ot.checks import CHECKS, run_checks
 from netbox_ot.customfields import PURDUE_CF_NAME, SLC_CF_NAME
-from netbox_ot.models import Conduit, Flow, RequirementStatus, RiskAssessment, SystemRequirement, Zone
+from netbox_ot.models import Conduit, Flow, RequirementStatus, RiskAssessment, RiskScenario, SystemRequirement, Zone
 
 TODAY = timezone.localdate()
 
@@ -95,6 +95,9 @@ class ChecksTest(TestCase):
         self._flow_into_other_plant()
         # The cell's assessment arrived at another SL-T than the cell has; the conduit's residual risk is accepted
         RiskAssessment.objects.filter(zone=self.cell).update(sl_target=[3] * 7)
+        # ... and one of its threat scenarios is worse than the assessment says (residual high)
+        RiskScenario.objects.create(assessment=RiskAssessment.objects.get(zone=self.cell), name='Ransomware',
+                                    residual_risk='critical')
         RiskAssessment.objects.create(
             conduit=Conduit.objects.get(name='Office - Cell'), assessed_on=TODAY, status='approved', approved_on=TODAY,
             residual_risk='high', tolerable_risk='medium', risk_accepted_by=self.contact, risk_accepted_on=TODAY,

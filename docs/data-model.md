@@ -13,7 +13,12 @@
   accountable person, and the devices and VMs that **enforce** it (firewalls, data diodes, gateways).
 - **Risk assessment** (IEC 62443-3-2) of a zone or conduit: initial (ZCR 2) or detailed (ZCR 5), draft or
   approved, who assessed and approved it and when, next review, method, threats, vulnerabilities,
-  consequences, countermeasures, **unmitigated, residual and tolerable risk**, a link to the report.
+  consequences, countermeasures, **unmitigated, residual and tolerable risk**, a link to the report, the
+  **SL-T it arrives at**, and an explicit, time-bound **acceptance** of a residual risk above tolerable.
+- **Risk scenario** (threat scenario of a risk assessment): a threat source, the **entry flow** or conduit it
+  comes in by, the **target devices**, the vulnerability and consequence, likelihood and impact before and
+  after countermeasures, and the requirement statuses whose countermeasures treat it. See
+  [Risk assessments](risk-assessments.md#threat-scenarios).
 - **System requirement** (IEC 62443-3-3) and its **status per zone or conduit**: see
   [System requirements](requirements.md).
 - **Flow**: what actually runs between two zones, in one direction: source and destination zone,

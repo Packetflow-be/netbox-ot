@@ -58,7 +58,7 @@ def build_risk_register(user=None, site=None, tenant=None):
 
     # Every assessment of the subjects in scope, per subject
     assessments = RiskAssessment.objects.filter(Q(zone__in=zones) | Q(conduit__in=conduits)).select_related(
-        'zone', 'conduit', 'approved_by', 'risk_accepted_by')
+        'zone', 'conduit', 'approved_by', 'risk_accepted_by').prefetch_related('scenarios')
     if user is not None:
         assessments = assessments.restrict(user, 'view')
     per_subject = defaultdict(list)

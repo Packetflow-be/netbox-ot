@@ -29,6 +29,7 @@ from ..choices import (
     RiskAssessmentStatusChoices,
     RiskLevelChoices,
     ServiceRoleChoices,
+    ThreatSourceChoices,
     ZoneTypeChoices,
 )
 from ..models import (
@@ -39,13 +40,15 @@ from ..models import (
     IndustrialService,
     RequirementStatus,
     RiskAssessment,
+    RiskScenario,
     SystemRequirement,
     Zone,
 )
 
 __all__ = (
     'ConduitSerializer', 'FieldbusSerializer', 'FlowHopSerializer', 'FlowSerializer', 'IndustrialServiceSerializer',
-    'RequirementStatusSerializer', 'RiskAssessmentSerializer', 'SystemRequirementSerializer', 'ZoneSerializer',
+    'RequirementStatusSerializer', 'RiskAssessmentSerializer', 'RiskScenarioSerializer', 'SystemRequirementSerializer',
+    'ZoneSerializer',
 )
 
 
@@ -316,3 +319,32 @@ class RequirementStatusSerializer(PrimaryModelSerializer):
             'custom_fields', 'created', 'last_updated',
         )
         brief_fields = ('id', 'url', 'display', 'status', 'description')
+
+
+class RiskScenarioSerializer(PrimaryModelSerializer):
+    assessment = RiskAssessmentSerializer(nested=True)
+    threat_source = ChoiceField(choices=ThreatSourceChoices, allow_blank=True, required=False)
+    entry_flow = FlowSerializer(nested=True, required=False, allow_null=True)
+    entry_conduit = ConduitSerializer(nested=True, required=False, allow_null=True)
+    targets = SerializedPKRelatedField(
+        queryset=Device.objects.all(), serializer=DeviceSerializer, nested=True, required=False, many=True,
+    )
+    requirement_statuses = SerializedPKRelatedField(
+        queryset=RequirementStatus.objects.all(), serializer=RequirementStatusSerializer, nested=True,
+        required=False, many=True,
+    )
+    unmitigated_risk = ChoiceField(choices=RiskLevelChoices, allow_blank=True, required=False)
+    residual_risk = ChoiceField(choices=RiskLevelChoices, allow_blank=True, required=False)
+    residual_above_tolerable = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = RiskScenario
+        fields = (
+            'id', 'url', 'display_url', 'display', 'assessment', 'name', 'threat_source', 'entry_flow',
+            'entry_conduit', 'targets', 'vulnerability', 'consequence', 'unmitigated_likelihood',
+            'unmitigated_impact', 'unmitigated_risk', 'countermeasures', 'requirement_statuses',
+            'residual_likelihood', 'residual_impact', 'residual_risk', 'residual_above_tolerable', 'description',
+            'owner', 'comments', 'tags', 'custom_fields', 'created', 'last_updated',
+        )
+        brief_fields = ('id', 'url', 'display', 'name', 'description')
+

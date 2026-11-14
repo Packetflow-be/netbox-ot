@@ -48,6 +48,7 @@ from .choices import (
     RiskAssessmentStatusChoices,
     RiskLevelChoices,
     ServiceRoleChoices,
+    ThreatSourceChoices,
     ZoneTypeChoices,
 )
 from .models import (
@@ -59,6 +60,7 @@ from .models import (
     PluginSettings,
     RequirementStatus,
     RiskAssessment,
+    RiskScenario,
     SystemRequirement,
     Zone,
 )
@@ -95,6 +97,10 @@ __all__ = (
     'RiskAssessmentFilterForm',
     'RiskAssessmentForm',
     'RiskAssessmentImportForm',
+    'RiskScenarioBulkEditForm',
+    'RiskScenarioFilterForm',
+    'RiskScenarioForm',
+    'RiskScenarioImportForm',
     'ZoneBulkEditForm',
     'ZoneFilterForm',
     'ZoneForm',
@@ -1286,6 +1292,143 @@ class RequirementStatusFilterForm(PrimaryModelFilterSetForm):
     status = forms.MultipleChoiceField(label=_('Status'), choices=RequirementStatusChoices, required=False)
     assessed_by_id = DynamicModelMultipleChoiceField(
         queryset=Contact.objects.all(), required=False, label=_('Assessed by'),
+    )
+    tag = TagFilterField(model)
+
+
+#
+# Threat scenarios of a risk assessment
+#
+
+class RiskScenarioForm(PrimaryModelForm):
+    assessment = DynamicModelChoiceField(label=_('Risk assessment'), queryset=RiskAssessment.objects.all())
+    entry_flow = DynamicModelChoiceField(
+        label=_('Entry flow'), queryset=Flow.objects.all(), required=False,
+        help_text=RiskScenario._meta.get_field('entry_flow').help_text,
+    )
+    entry_conduit = DynamicModelChoiceField(
+        label=_('Entry conduit'), queryset=Conduit.objects.all(), required=False,
+        help_text=RiskScenario._meta.get_field('entry_conduit').help_text,
+    )
+    targets = DynamicModelMultipleChoiceField(label=_('Target assets'), queryset=Device.objects.all(), required=False)
+    requirement_statuses = DynamicModelMultipleChoiceField(
+        label=_('Requirement statuses'), queryset=RequirementStatus.objects.all(), required=False,
+        help_text=RiskScenario._meta.get_field('requirement_statuses').help_text,
+    )
+
+    fieldsets = (
+        FieldSet('assessment', 'name', 'threat_source', 'description', 'tags', name=_('Scenario')),
+        FieldSet('entry_flow', 'entry_conduit', 'targets', name=_('Way in and targets')),
+        FieldSet('vulnerability', 'consequence', 'unmitigated_likelihood', 'unmitigated_impact', 'unmitigated_risk',
+                 name=_('Risk')),
+        FieldSet('countermeasures', 'requirement_statuses', 'residual_likelihood', 'residual_impact', 'residual_risk',
+                 name=_('Treatment')),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Narrow the pickers to the assessment's zone or conduit once it is known
+        ra = self.instance.assessment if self.instance.assessment_id else None
+        if ra is None and self.initial.get('assessment'):
+            ra = RiskAssessment.objects.filter(pk=self.initial['assessment']).first()
+        if ra is not None:
+            if ra.zone_id:
+                self.fields['entry_flow'].widget.add_query_params({'zone_id': ra.zone_id})
+                self.fields['targets'].widget.add_query_params(
+                    {'id': list(ra.zone.devices.values_list('pk', flat=True)[:500]) or [0]})
+                self.fields['requirement_statuses'].widget.add_query_params({'zone_id': ra.zone_id})
+            else:
+                self.fields['entry_flow'].widget.add_query_params({'conduit_id': ra.conduit_id})
+                self.fields['requirement_statuses'].widget.add_query_params({'conduit_id': ra.conduit_id})
+        for name in ('unmitigated_likelihood', 'unmitigated_impact', 'residual_likelihood', 'residual_impact'):
+            axis = name.split('_')[1]
+            self.fields[name] = forms.TypedChoiceField(
+                label=self.fields[name].label, required=False, coerce=int, empty_value=None,
+                choices=add_blank_choice(risk.scale_choices(axis)),
+                help_text=_('Optional. With likelihood and impact the risk matrix gives the level below.'),
+            )
+        for name in ('unmitigated_risk', 'residual_risk'):
+            self.fields[name].help_text = _('Leave empty to take it from the risk matrix')
+
+    class Meta:
+        model = RiskScenario
+        fields = (
+            'assessment', 'name', 'threat_source', 'entry_flow', 'entry_conduit', 'targets', 'vulnerability',
+            'consequence', 'unmitigated_likelihood', 'unmitigated_impact', 'unmitigated_risk', 'countermeasures',
+            'requirement_statuses', 'residual_likelihood', 'residual_impact', 'residual_risk', 'description',
+            'owner', 'comments', 'tags',
+        )
+        widgets = {
+            'vulnerability': forms.Textarea(attrs={'rows': 3}),
+            'consequence': forms.Textarea(attrs={'rows': 3}),
+            'countermeasures': forms.Textarea(attrs={'rows': 3}),
+        }
+
+
+class RiskScenarioBulkEditForm(PrimaryModelBulkEditForm):
+    threat_source = forms.ChoiceField(
+        label=_('Threat source'), choices=add_blank_choice(ThreatSourceChoices), required=False,
+    )
+    entry_conduit = DynamicModelChoiceField(label=_('Entry conduit'), queryset=Conduit.objects.all(), required=False)
+
+    model = RiskScenario
+    fieldsets = (FieldSet('threat_source', 'entry_conduit', 'description'),)
+    nullable_fields = ('threat_source', 'entry_conduit', 'description', 'comments')
+
+
+class RiskScenarioImportForm(PrimaryModelImportForm):
+    assessment = CSVModelChoiceField(
+        label=_('Risk assessment'), queryset=RiskAssessment.objects.all(), to_field_name='pk',
+        help_text=_('ID of the risk assessment'),
+    )
+    threat_source = CSVChoiceField(label=_('Threat source'), choices=ThreatSourceChoices, required=False)
+    entry_flow = CSVModelChoiceField(
+        label=_('Entry flow'), queryset=Flow.objects.all(), required=False, to_field_name='pk',
+        help_text=_('ID of the flow'),
+    )
+    entry_conduit = CSVModelChoiceField(
+        label=_('Entry conduit'), queryset=Conduit.objects.all(), required=False, to_field_name='name',
+    )
+    targets = CSVModelMultipleChoiceField(
+        label=_('Target assets'), queryset=Device.objects.all(), required=False, to_field_name='name',
+        help_text=_('Device names, comma separated'),
+    )
+    unmitigated_risk = CSVChoiceField(label=_('Unmitigated risk'), choices=RiskLevelChoices, required=False)
+    residual_risk = CSVChoiceField(label=_('Residual risk'), choices=RiskLevelChoices, required=False)
+
+    class Meta:
+        model = RiskScenario
+        fields = (
+            'assessment', 'name', 'threat_source', 'entry_flow', 'entry_conduit', 'targets', 'vulnerability',
+            'consequence', 'unmitigated_likelihood', 'unmitigated_impact', 'unmitigated_risk', 'countermeasures',
+            'residual_likelihood', 'residual_impact', 'residual_risk', 'description', 'owner', 'comments', 'tags',
+        )
+
+
+class RiskScenarioFilterForm(PrimaryModelFilterSetForm):
+    model = RiskScenario
+    fieldsets = (
+        FieldSet('q', 'filter_id', 'tag'),
+        FieldSet('assessment_id', 'site_id', 'zone_id', 'conduit_id', name=_('Assessment')),
+        FieldSet('threat_source', 'entry_flow_id', 'device_id', 'remote_access', name=_('Scenario')),
+        FieldSet('unmitigated_risk', 'residual_risk', 'residual_above_tolerable', name=_('Risk')),
+    )
+    assessment_id = DynamicModelMultipleChoiceField(
+        queryset=RiskAssessment.objects.all(), required=False, label=_('Risk assessment'),
+    )
+    site_id = DynamicModelMultipleChoiceField(queryset=Site.objects.all(), required=False, label=_('Site'))
+    zone_id = DynamicModelMultipleChoiceField(queryset=Zone.objects.all(), required=False, label=_('Zone'))
+    conduit_id = DynamicModelMultipleChoiceField(queryset=Conduit.objects.all(), required=False, label=_('Conduit'))
+    threat_source = forms.MultipleChoiceField(label=_('Threat source'), choices=ThreatSourceChoices, required=False)
+    entry_flow_id = DynamicModelMultipleChoiceField(queryset=Flow.objects.all(), required=False, label=_('Entry flow'))
+    device_id = DynamicModelMultipleChoiceField(queryset=Device.objects.all(), required=False, label=_('Target'))
+    remote_access = forms.NullBooleanField(
+        label=_('Comes in by remote access'), required=False, widget=forms.Select(choices=BOOLEAN_WITH_BLANK_CHOICES),
+    )
+    unmitigated_risk = forms.MultipleChoiceField(label=_('Unmitigated risk'), choices=RiskLevelChoices, required=False)
+    residual_risk = forms.MultipleChoiceField(label=_('Residual risk'), choices=RiskLevelChoices, required=False)
+    residual_above_tolerable = forms.NullBooleanField(
+        label=_('Residual above tolerable'), required=False, widget=forms.Select(choices=BOOLEAN_WITH_BLANK_CHOICES),
     )
     tag = TagFilterField(model)
 

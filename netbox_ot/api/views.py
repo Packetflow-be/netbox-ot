@@ -20,6 +20,7 @@ from ..models import (
     IndustrialService,
     RequirementStatus,
     RiskAssessment,
+    RiskScenario,
     SystemRequirement,
     Zone,
 )
@@ -34,6 +35,7 @@ from .serializers import (
     IndustrialServiceSerializer,
     RequirementStatusSerializer,
     RiskAssessmentSerializer,
+    RiskScenarioSerializer,
     SystemRequirementSerializer,
     ZoneSerializer,
 )
@@ -75,6 +77,14 @@ class SystemRequirementViewSet(NetBoxModelViewSet):
     queryset = SystemRequirement.objects.select_related('parent').prefetch_related('tags')
     serializer_class = SystemRequirementSerializer
     filterset_class = filtersets.SystemRequirementFilterSet
+
+
+class RiskScenarioViewSet(NetBoxModelViewSet):
+    queryset = RiskScenario.objects.select_related(
+        'assessment__zone', 'assessment__conduit', 'entry_flow', 'entry_conduit',
+    ).prefetch_related('targets', 'requirement_statuses', 'tags')
+    serializer_class = RiskScenarioSerializer
+    filterset_class = filtersets.RiskScenarioFilterSet
 
 
 class RequirementStatusViewSet(NetBoxModelViewSet):

@@ -12,7 +12,7 @@ from .. import models
 
 __all__ = (
     'ConduitFilter', 'FieldbusFilter', 'FlowFilter', 'FlowHopFilter', 'IndustrialServiceFilter',
-    'RequirementStatusFilter', 'RiskAssessmentFilter', 'SystemRequirementFilter', 'ZoneFilter',
+    'RequirementStatusFilter', 'RiskAssessmentFilter', 'RiskScenarioFilter', 'SystemRequirementFilter', 'ZoneFilter',
 )
 
 
@@ -98,6 +98,17 @@ class RiskAssessmentFilter(PrimaryModelFilter):
     residual_risk: StrFilterLookup[str] | None = strawberry_django.filter_field()
     tolerable_risk: StrFilterLookup[str] | None = strawberry_django.filter_field()
     risk_accepted_by_id: ID | None = strawberry_django.filter_field()
+
+
+@register_filter(models.RiskScenario, lookups=True)
+class RiskScenarioFilter(PrimaryModelFilter):
+    assessment_id: ID | None = strawberry_django.filter_field()
+    name: StrFilterLookup[str] | None = strawberry_django.filter_field()
+    threat_source: StrFilterLookup[str] | None = strawberry_django.filter_field()
+    entry_flow_id: ID | None = strawberry_django.filter_field()
+    entry_conduit_id: ID | None = strawberry_django.filter_field()
+    unmitigated_risk: StrFilterLookup[str] | None = strawberry_django.filter_field()
+    residual_risk: StrFilterLookup[str] | None = strawberry_django.filter_field()
 
 
 @register_filter(models.SystemRequirement, lookups=True)

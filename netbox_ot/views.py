@@ -15,7 +15,7 @@ from netbox.views import generic
 from tenancy.models import Tenant
 from utilities.views import ContentTypePermissionRequiredMixin, ViewTab, register_model_view
 
-from . import filtersets, forms, risk, risk_scope, sl, tables
+from . import exposure, filtersets, forms, risk, risk_scope, sl, tables
 from .accessmap import access_map_diagram, access_map_flows, accessmap_labels, attention
 from .branching import branch_names, branching_installed
 from .checks import CHECKS, run_checks, summary
@@ -30,6 +30,7 @@ from .models import (
     PluginSettings,
     RequirementStatus,
     RiskAssessment,
+    RiskScenario,
     SystemRequirement,
     Zone,
 )
@@ -103,6 +104,11 @@ class RiskAssessmentPanel(panels.ObjectAttributesPanel):
     description = attrs.TextAttr('description')
 
 
+class TextPanel(panels.TextCodePanel):
+    """A free-text field rendered as Markdown that wraps (TextCodePanel is a code block that does not)."""
+    template_name = 'netbox_ot/inc/text_panel.html'
+
+
 class RiskLevelsPanel(panels.ObjectAttributesPanel):
     unmitigated_risk = attrs.ChoiceAttr('unmitigated_risk', label=_('Unmitigated risk'))
     unmitigated_place = attrs.TextAttr('unmitigated_place', label=_('Unmitigated likelihood and impact'))
@@ -110,6 +116,7 @@ class RiskLevelsPanel(panels.ObjectAttributesPanel):
     residual_place = attrs.TextAttr('residual_place', label=_('Residual likelihood and impact'))
     tolerable_risk = attrs.ChoiceAttr('tolerable_risk', label=_('Tolerable risk'))
     residual_above_tolerable = attrs.BooleanAttr('residual_above_tolerable', label=_('Residual above tolerable'))
+    scenario_levels = attrs.TextAttr('scenario_levels_display', label=_('Worst threat scenario'))
 
 
 class RiskOutcomePanel(panels.Panel):
@@ -624,14 +631,22 @@ class RiskAssessmentView(generic.ObjectView):
             RiskMatrixPanel(),
             RiskLevelsPanel(title=_('Risk')),
             RiskOutcomePanel(),
-            panels.TextCodePanel('threats', title=_('Threats')),
-            panels.TextCodePanel('vulnerabilities', title=_('Vulnerabilities')),
-            panels.TextCodePanel('consequences', title=_('Consequences')),
-            panels.TextCodePanel('countermeasures', title=_('Countermeasures')),
+            TextPanel('threats', title=_('Threats')),
+            TextPanel('vulnerabilities', title=_('Vulnerabilities')),
+            TextPanel('consequences', title=_('Consequences')),
+            TextPanel('countermeasures', title=_('Countermeasures')),
             CustomFieldsPanel(),
             panels.CommentsPanel(),
         ],
         bottom_panels=[
+            panels.ObjectsTablePanel(
+                'netbox_ot.riskscenario',
+                filters={'assessment_id': lambda ctx: ctx['object'].pk},
+                exclude_columns=['assessment'],
+                title=_('Threat scenarios'),
+                actions=[actions.AddObject('netbox_ot.riskscenario', label=_('Add a scenario'),
+                                           url_params={'assessment': lambda ctx: ctx['object'].pk})],
+            ),
             RiskScopePanel(),
         ],
     )
@@ -692,6 +707,122 @@ class RiskAssessmentBulkDeleteView(generic.BulkDeleteView):
 
 
 #
+# Threat scenarios of a risk assessment
+#
+
+class RiskScenarioPanel(panels.ObjectAttributesPanel):
+    name = attrs.TextAttr('name')
+    assessment = attrs.RelatedObjectAttr('assessment', linkify=True, label=_('Risk assessment'))
+    threat_source = attrs.ChoiceAttr('threat_source', label=_('Threat source'))
+    entry_conduit = attrs.RelatedObjectAttr('entry_conduit', linkify=True, label=_('Entry conduit'))
+    description = attrs.TextAttr('description')
+
+
+class RiskScenarioLevelsPanel(panels.ObjectAttributesPanel):
+    unmitigated_risk = attrs.ChoiceAttr('unmitigated_risk', label=_('Unmitigated risk'))
+    unmitigated_place = attrs.TextAttr('unmitigated_place', label=_('Unmitigated likelihood and impact'))
+    residual_risk = attrs.ChoiceAttr('residual_risk', label=_('Residual risk'))
+    residual_place = attrs.TextAttr('residual_place', label=_('Residual likelihood and impact'))
+    residual_above_tolerable = attrs.BooleanAttr(
+        'residual_above_tolerable', label=_('Residual above the tolerable risk of the assessment'),
+    )
+
+
+class RiskScenarioEntryPanel(panels.Panel):
+    """How the threat comes in: the entry flow with what makes it matter (remote access, writes, from outside)."""
+    template_name = 'netbox_ot/inc/scenario_entry_panel.html'
+    title = _('Way in')
+
+    def get_context(self, context):
+        flow = context['object'].entry_flow
+        info = None
+        if flow is not None:
+            info = {
+                'changes': exposure.changes_flow(flow),
+                'outside': flow.source_zone is not None and exposure.is_outside_zone(flow.source_zone),
+                'into_control': flow.destination_zone is not None and exposure.is_control_zone(flow.destination_zone),
+            }
+        return {**super().get_context(context), 'flow': flow, 'info': info}
+
+
+@register_model_view(RiskScenario, 'list', path='', detail=False)
+class RiskScenarioListView(generic.ObjectListView):
+    queryset = RiskScenario.objects.select_related('assessment__zone', 'assessment__conduit', 'entry_flow',
+                                                   'entry_conduit').prefetch_related('targets', 'requirement_statuses')
+    filterset = filtersets.RiskScenarioFilterSet
+    filterset_form = forms.RiskScenarioFilterForm
+    table = tables.RiskScenarioTable
+
+
+@register_model_view(RiskScenario)
+class RiskScenarioView(generic.ObjectView):
+    queryset = RiskScenario.objects.select_related('assessment', 'entry_flow__source_zone',
+                                                   'entry_flow__destination_zone', 'entry_conduit')
+    template_name = 'generic/object.html'
+    layout = layout.SimpleLayout(
+        left_panels=[
+            RiskScenarioPanel(),
+            RiskScenarioEntryPanel(),
+            TagsPanel(),
+        ],
+        right_panels=[
+            RiskMatrixPanel(),
+            RiskScenarioLevelsPanel(title=_('Risk')),
+            TextPanel('vulnerability', title=_('Vulnerability')),
+            TextPanel('consequence', title=_('Consequence')),
+            TextPanel('countermeasures', title=_('Countermeasures')),
+            CustomFieldsPanel(),
+            panels.CommentsPanel(),
+        ],
+        bottom_panels=[
+            panels.ObjectsTablePanel(
+                'dcim.device',
+                filters={'id': lambda ctx: _ids_or_none(ctx['object'].targets.all())},
+                title=_('Target assets'),
+            ),
+            panels.ObjectsTablePanel(
+                'netbox_ot.requirementstatus',
+                filters={'id': lambda ctx: _ids_or_none(ctx['object'].requirement_statuses.all())},
+                title=_('Countermeasures as IEC 62443-3-3 requirements'),
+            ),
+        ],
+    )
+
+
+@register_model_view(RiskScenario, 'add', detail=False)
+@register_model_view(RiskScenario, 'edit')
+class RiskScenarioEditView(generic.ObjectEditView):
+    queryset = RiskScenario.objects.all()
+    form = forms.RiskScenarioForm
+
+
+@register_model_view(RiskScenario, 'delete')
+class RiskScenarioDeleteView(generic.ObjectDeleteView):
+    queryset = RiskScenario.objects.all()
+
+
+@register_model_view(RiskScenario, 'bulk_import', path='import', detail=False)
+class RiskScenarioBulkImportView(generic.BulkImportView):
+    queryset = RiskScenario.objects.all()
+    model_form = forms.RiskScenarioImportForm
+
+
+@register_model_view(RiskScenario, 'bulk_edit', path='edit', detail=False)
+class RiskScenarioBulkEditView(generic.BulkEditView):
+    queryset = RiskScenario.objects.all()
+    filterset = filtersets.RiskScenarioFilterSet
+    table = tables.RiskScenarioTable
+    form = forms.RiskScenarioBulkEditForm
+
+
+@register_model_view(RiskScenario, 'bulk_delete', path='delete', detail=False)
+class RiskScenarioBulkDeleteView(generic.BulkDeleteView):
+    queryset = RiskScenario.objects.all()
+    filterset = filtersets.RiskScenarioFilterSet
+    table = tables.RiskScenarioTable
+
+
+#
 # System requirements and their status per zone or conduit
 #
 
@@ -733,7 +864,7 @@ class SystemRequirementView(generic.ObjectView):
             TagsPanel(),
         ],
         right_panels=[
-            panels.TextCodePanel('wording', title=_('Wording (from your copy of the standard)')),
+            TextPanel('wording', title=_('Wording (from your copy of the standard)')),
             CustomFieldsPanel(),
             panels.CommentsPanel(),
         ],
@@ -806,8 +937,8 @@ class RequirementStatusView(generic.ObjectView):
             TagsPanel(),
         ],
         right_panels=[
-            panels.TextCodePanel('countermeasure', title=_('Compensating countermeasure')),
-            panels.TextCodePanel('evidence', title=_('Evidence')),
+            TextPanel('countermeasure', title=_('Compensating countermeasure')),
+            TextPanel('evidence', title=_('Evidence')),
             CustomFieldsPanel(),
             panels.CommentsPanel(),
         ],
