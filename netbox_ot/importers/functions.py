@@ -45,7 +45,10 @@ MODBUS = _table(
         'Read Exception Status', 'Get Comm Event Counter', 'Get Comm Event Log', 'Report Slave ID',
         'Report Server ID', 'Read File Record', 'Read FIFO Queue', 'Read Device Identification',
         'Read Coil Status', 'Read Input Status',
-        '1', '2', '3', '4', '7', '11', '12', '17', '20', '24',
+        # Function 43 carries MEI 14, Read Device Identification, in practice (MEI 13, CANopen, hardly occurs):
+        # a read, and the first thing a scanner asks
+        'Encapsulated Interface Transport', 'Encap Interface Transport',
+        '1', '2', '3', '4', '7', '11', '12', '17', '20', '24', '43',
     ),
     write=(
         'Write Single Coil', 'Write Single Register', 'Write Multiple Coils', 'Write Multiple Registers',
@@ -54,17 +57,19 @@ MODBUS = _table(
         '5', '6', '15', '16', '21', '22', '23',
     ),
     control=('Diagnostics', 'Diagnostic', '8'),
-    other=('Encapsulated Interface Transport', 'Encap Interface Transport', '43'),
 )
 
 # S7comm: Wireshark and ICSNPP job functions and PLC control
 S7COMM = _table(
-    read=('Read Var', 'Read Variable', 'Start Upload', 'Upload', 'End Upload', 'Read SZL', 'Block Functions'),
-    write=('Write Var', 'Write Variable'),
+    # User-Data subfunctions (SZL = the CPU's system status lists: identity, modules, state) and their groups:
+    # CPU and block functions are reads (asking for them is a scanner's first step), time functions can set the clock
+    read=('Read Var', 'Read Variable', 'Start Upload', 'Upload', 'End Upload', 'Read SZL', 'Block Functions',
+          'CPU Functions', 'CPU Services', 'List Blocks', 'List Blocks of Type', 'Get Block Info', 'Read Clock',
+          'Read Clock (following)', 'Message Service'),
+    write=('Write Var', 'Write Variable', 'Set Clock'),
     control=('PLC Control', 'PLC Stop', 'PI-Service', 'PI Service'),
     program=('Request Download', 'Download Block', 'Download Ended', 'Download', 'Delete Block', 'Insert Block'),
-    other=('Setup Communication', 'Setup Comm', 'Userdata', 'Ack', 'Ack Data', 'Job', 'CPU Services', 'CPU Functions',
-           'Time Functions'),
+    other=('Setup Communication', 'Setup Comm', 'Userdata', 'Ack', 'Ack Data', 'Job', 'Time Functions'),
 )
 
 # S7comm-plus opcodes and functions

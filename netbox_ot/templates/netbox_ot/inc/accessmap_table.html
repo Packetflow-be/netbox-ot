@@ -53,7 +53,17 @@
   </h2>
   {% if flows %}
     <div class="table-responsive">
-      <table class="table table-hover attr-table">
+      <style>
+        /* attr-table breaks words anywhere: zone names wrap at spaces here, and the evidence stays one line until opened */
+        .ot-flow-table td { overflow-wrap: normal; }
+        .ot-flow-table .ot-zone { min-width: 7rem; }
+        .ot-flow-table .ot-date { white-space: nowrap; }
+        .ot-flow-table .ot-evidence { min-width: 9rem; max-width: 16rem; }
+        .ot-flow-table .ot-evidence summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ot-flow-table .ot-evidence details[open] summary { white-space: normal; }
+        .ot-flow-table .ot-evidence .ot-evidence-rest { max-height: 14rem; overflow: auto; overflow-wrap: anywhere; }
+      </style>
+      <table class="table table-hover attr-table ot-flow-table">
         <thead>
           <tr>
             <th>#</th>
@@ -74,8 +84,8 @@
             <tr>
               <td><a href="{{ f.get_absolute_url }}">{{ forloop.counter }}</a></td>
               {% if show_site %}<td>{{ f.destination_zone.site|linkify|placeholder }}</td>{% endif %}
-              <td>{{ f.source_zone|linkify }}{% if f.source_zone.purdue_level %} {% badge f.source_zone.purdue_level bg_color=f.source_zone.get_purdue_level_color %}{% endif %}</td>
-              <td>{{ f.destination_zone|linkify }}{% if f.destination_zone.purdue_level %} {% badge f.destination_zone.purdue_level bg_color=f.destination_zone.get_purdue_level_color %}{% endif %}</td>
+              <td class="ot-zone">{{ f.source_zone|linkify }}{% if f.source_zone.purdue_level %} {% badge f.source_zone.purdue_level bg_color=f.source_zone.get_purdue_level_color %}{% endif %}</td>
+              <td class="ot-zone">{{ f.destination_zone|linkify }}{% if f.destination_zone.purdue_level %} {% badge f.destination_zone.purdue_level bg_color=f.destination_zone.get_purdue_level_color %}{% endif %}</td>
               <td>
                 {{ f.get_protocol_display|placeholder }}{% if f.port_mappings %} <span class="text-muted small" title="{{ f.ports_display }}">{{ f.ports_short }}</span>{% endif %}
                 {% if f.connection != 'client-server' %}
@@ -94,11 +104,11 @@
                 {% if f.is_expired %}<span class="badge text-bg-danger">{% trans "expired" %}</span>{% endif %}
                 {% if f.is_review_due %}<span class="badge text-bg-warning">{% trans "review due" %}</span>{% endif %}
               </td>
-              <td class="small">{{ f.last_seen|date:"Y-m-d"|placeholder }}</td>
-              <td class="small">
+              <td class="small ot-date">{{ f.last_seen|date:"Y-m-d"|placeholder }}</td>
+              <td class="small ot-evidence">
                 {% with lines=f.evidence_lines %}
                   {% if lines.1 %}
-                    <details><summary>{{ lines.0 }}</summary>{{ lines.1|linebreaksbr }}</details>
+                    <details><summary title="{{ lines.0 }}">{{ lines.0 }}</summary><div class="ot-evidence-rest">{{ lines.1|linebreaksbr }}</div></details>
                   {% else %}
                     {{ lines.0|placeholder }}
                   {% endif %}

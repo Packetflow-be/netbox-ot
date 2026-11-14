@@ -282,6 +282,36 @@ def _next_steps(site, flows, own_zones, own_conduits):
     return steps
 
 
+def network_assets(site, user=None):
+    """
+    The number of devices and VMs at `site` that take part in the network or have a Purdue level: what the
+    asset-without-zone check looks at, and what makes a site without zones worth an OT overview (where to start).
+    """
+    from dcim.models import Device
+    from virtualization.models import VirtualMachine
+
+    from .customfields import PURDUE_CF_NAME
+
+    q = Q(primary_ip4__isnull=False) | Q(custom_field_data__has_key=PURDUE_CF_NAME) & ~Q(
+        **{f'custom_field_data__{PURDUE_CF_NAME}': None})
+    total = 0
+    for model in (Device, VirtualMachine):
+        qs = model.objects.filter(q, site=site)
+        total += (qs.restrict(user, 'view') if user is not None else qs).count()
+    return total
+
+
+def _start(site, zones, user):
+    """Where to start on a site without zones: None once it has one."""
+    if zones:
+        return None
+    return {
+        'assets': network_assets(site, user),
+        'zone_add_url': reverse('plugins:netbox_ot:zone_add') + '?' + urlencode({'site': site.pk}),
+        'checks_url': reverse('plugins:netbox_ot:checks') + '?' + urlencode({'site_id': site.pk}),
+    }
+
+
 def build_overview(site, user=None, zone=None):
     """
     The overview of `site` as plain data. `zone` (a zone of the site) draws the radar chart for that zone
@@ -310,6 +340,7 @@ def build_overview(site, user=None, zone=None):
         'site': site,
         'generated': timezone.now(),
         'version': __version__,
+        'start': _start(site, zones, user),
         'focus': focus,
         'axes': axes,
         'weakest': _weakest_zones(axes),

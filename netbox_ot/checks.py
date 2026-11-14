@@ -10,7 +10,6 @@ Each check has a stable id (for filters and CI) and a severity:
 
 Checks only read; they never change anything.
 """
-import datetime
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -18,7 +17,7 @@ from django.db.models import F, Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from . import exposure, lifecycle, sl
+from . import exposure, lifecycle, sl, staleness
 from .choices import AccessChoices, ConnectionChoices, FlowAllowedChoices, RiskAssessmentStatusChoices, ZoneTypeChoices
 from .customfields import get_purdue_level, get_sl_capability
 from .models import (
@@ -237,11 +236,14 @@ def asset_without_zone(scope):
     from dcim.models import Device
     from virtualization.models import VirtualMachine
 
-    site_ids = {z.site_id for z in scope.zones if z.site_id}
+    # The sites with zones, and the site checked even before it has one (where a new user starts)
+    site_ids = {z.site_id for z in scope.zones if z.site_id} | ({scope.site.pk} if scope.site is not None else set())
     if not site_ids:
         return
     for model in (Device, VirtualMachine):
-        qs = scope.visible(model.objects.filter(site_id__in=site_ids, ot_zones__isnull=True))
+        # A device that enforces a conduit (the firewall between zones) sits between zones, not in one
+        qs = scope.visible(model.objects.filter(site_id__in=site_ids, ot_zones__isnull=True,
+                                                ot_enforced_conduits__isnull=True))
         for asset in qs.select_related('site'):
             # Only assets that take part in the network or have a Purdue level; not patch panels and PDUs
             if asset.primary_ip4_id or get_purdue_level(asset):
@@ -500,10 +502,12 @@ def verdict_without_decider(scope):
 
 @check('stale-flow', _('Flow not seen recently'), INFO)
 def stale_flow(scope):
+    """Measured from the latest observation at the flow's site, not from today: an old capture is not stale."""
     days = stale_after_days()
-    for flow in scope.flows.filter(last_seen__lt=timezone.now() - datetime.timedelta(days=days)):
-        yield flow, _('{flow} was last seen {date}, more than {days} days ago').format(
-            flow=flow, date=flow.last_seen.date(), days=days)
+    for flow in staleness.filter_stale(scope.flows):
+        yield flow, _('{flow} was last seen {date}, more than {days} days before the latest observation at its '
+                      'site ({latest})').format(flow=flow, date=flow.last_seen.date(), days=days,
+                                                latest=getattr(flow, staleness.STALE_ANNOTATION).date())
 
 
 def run_checks(site=None, user=None, checks=None, severities=None, tenant=None):
