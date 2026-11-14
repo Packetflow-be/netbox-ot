@@ -3,7 +3,13 @@
 {% block panel_content %}
   <style>
     .ot-risk { border-collapse: separate; border-spacing: 3px; width: 100%; table-layout: fixed; }
-    .ot-risk th { font-weight: 400; font-size: .75rem; line-height: 1.15; padding: 2px 4px; }
+    /* Never split a word ("Likelihoo-d"): the labels wrap between words only */
+    .ot-risk th { font-weight: 400; font-size: .75rem; line-height: 1.15; padding: 2px 4px; word-break: normal;
+      overflow-wrap: normal; hyphens: none; }
+    .ot-risk .ot-risk-corner { font-size: .7rem; }
+    .ot-risk .ot-risk-corner span { display: block; }
+    .ot-risk .ot-risk-corner .c-impact { text-align: right; }
+    .ot-risk .ot-risk-corner .c-likelihood { text-align: left; }
     .ot-risk thead th, .ot-risk tfoot th { text-align: center; vertical-align: bottom; }
     .ot-risk tbody th { text-align: right; width: 24%; }
     @media (max-width: 575px) { .ot-risk tbody th, .ot-risk thead th:first-child { width: 2.2rem; font-size: .7rem; } }
@@ -17,8 +23,11 @@
     .ot-risk td.r-above { background-image: repeating-linear-gradient(45deg, rgba(0, 0, 0, .13) 0 2px, transparent 2px 7px); }
     .ot-risk td.r-edge-top { border-top-color: #1f2933; }
     .ot-risk td.r-edge-right { border-right-color: #1f2933; }
-    .ot-risk-mark { display: inline-block; min-width: 1.5rem; padding: 1px 5px; border-radius: 1rem; font-weight: 700;
-      font-size: .75rem; color: #fff; background: #1f2933; }
+    /* A round mark with its letter centred both ways */
+    .ot-risk-mark { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+      width: 1.5rem; height: 1.5rem; padding: 0; border-radius: 50%; font-weight: 700; font-size: .75rem;
+      line-height: 1; text-align: center; vertical-align: middle; color: #fff; background: #1f2933; }
+    .ot-risk td .ot-risk-mark + .ot-risk-mark { margin-left: 2px; }
     .ot-risk-mark.m-R { background: #206bc4; }
     .ot-risk-mark.m-T { background: #fff; color: #1f2933; border: 2px solid #1f2933; }
     .ot-risk-level { opacity: .75; }
@@ -28,7 +37,7 @@
       <table class="ot-risk" role="table" aria-label="{% trans 'Risk matrix: likelihood by impact' %}">
         <thead>
           <tr>
-            <th scope="col" class="text-muted"><span class="d-none d-sm-inline">{% trans "Likelihood" %} &darr; / {% trans "Impact" %} &rarr;</span></th>
+            <th scope="col" class="text-muted ot-risk-corner"><div class="d-none d-sm-block"><span class="c-impact">{% trans "Impact" %} &rarr;</span><span class="c-likelihood">{% trans "Likelihood" %} &darr;</span></div></th>
             {% for n, label in matrix.impact %}<th scope="col">{{ n }}<span class="d-none d-sm-inline"><br>{{ label }}</span></th>{% endfor %}
           </tr>
         </thead>
