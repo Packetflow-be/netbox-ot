@@ -19,7 +19,7 @@ from . import exposure, filtersets, forms, risk, risk_scope, sl, tables
 from .accessmap import access_map_diagram, access_map_flows, accessmap_labels, attention
 from .branching import branch_names, branching_installed
 from .checks import CHECKS, run_checks, summary
-from .choices import ConnectionChoices, RiskAssessmentKindChoices, RiskAssessmentStatusChoices
+from .choices import ConnectionChoices, PurdueLevelChoices, RiskAssessmentKindChoices, RiskAssessmentStatusChoices
 from .customfields import get_sl_capability
 from .models import (
     Conduit,
@@ -34,7 +34,7 @@ from .models import (
     SystemRequirement,
     Zone,
 )
-from .overview import build_overview
+from .overview import build_overview, network_assets
 from .register import build_register, register_csv
 from .risk_register import build_risk_register, risk_register_csv
 from .rules import build_rules, rules_csv
@@ -267,6 +267,11 @@ class FlowVerdictPanel(panels.ObjectAttributesPanel):
     expires = attrs.DateTimeAttr('expires', spec='date', label=_('Expires'))
 
 
+class EvidencePanel(panels.TextCodePanel):
+    """Evidence text whose long lines wrap (NetBox's code panel lets them run off the card)."""
+    template_name = 'netbox_ot/inc/evidence_panel.html'
+
+
 class FlowSeenPanel(panels.ObjectAttributesPanel):
     first_seen = attrs.DateTimeAttr('first_seen', label=_('First seen'))
     last_seen = attrs.DateTimeAttr('last_seen', label=_('Last seen'))
@@ -490,7 +495,7 @@ class FlowView(generic.ObjectView):
         ],
         right_panels=[
             FlowSeenPanel(title=_('Observed')),
-            panels.TextCodePanel('evidence', title=_('Evidence')),
+            EvidencePanel('evidence', title=_('Evidence')),
             CustomFieldsPanel(),
             panels.CommentsPanel(),
         ],
@@ -1076,7 +1081,7 @@ class IndustrialServiceView(generic.ObjectView):
     layout = layout.SimpleLayout(
         left_panels=[IndustrialServicePanel(), TagsPanel()],
         right_panels=[
-            panels.TextCodePanel('evidence', title=_('Evidence')),
+            EvidencePanel('evidence', title=_('Evidence')),
             CustomFieldsPanel(),
             panels.CommentsPanel(),
         ],
@@ -1182,18 +1187,24 @@ class AccessMapView(ContentTypePermissionRequiredMixin, View):
         })
 
 
+def _site_flows(site):
+    return Flow.objects.filter(Q(source_zone__site=site) | Q(destination_zone__site=site))
+
+
 @register_model_view(Site, name='ot_accessmap', path='access-map')
 class SiteAccessMapView(generic.ObjectView):
     queryset = Site.objects.all()
     template_name = 'netbox_ot/site_accessmap.html'
+    # The badge counts what the table lists (flows into a zone at the default maximum level or below); the tab
+    # is there as long as the site has any flow, as its "needs attention" list covers them all
     tab = ViewTab(
         label=_('Access map'),
-        badge=lambda site: Flow.objects.filter(
-            Q(source_zone__site=site) | Q(destination_zone__site=site)
+        badge=lambda site: _site_flows(site).filter(
+            destination_zone__purdue_level__in=PurdueLevelChoices.at_or_below(_default_max_level())
         ).count(),
+        visible=lambda site: _site_flows(site).exists(),
         permission='netbox_ot.view_flow',
         weight=2100,
-        hide_if_empty=True,
     )
 
     def get_extra_context(self, request, instance):
@@ -1355,7 +1366,8 @@ class SiteOverviewView(generic.ObjectView):
     template_name = 'netbox_ot/site_overview.html'
     tab = _QuietTab(
         label=_('OT overview'),
-        badge=_register_badge,
+        # Also on a site without zones that has networked devices: the overview then says where to start
+        badge=lambda site: _register_badge(site) or network_assets(site),
         permission='netbox_ot.view_zone',
         weight=2090,
         hide_if_empty=True,

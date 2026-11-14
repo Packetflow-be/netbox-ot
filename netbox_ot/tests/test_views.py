@@ -408,4 +408,4 @@ class ChecksAndRegisterViewTest(TestCase):
         self.assertEqual(response['Content-Type'], 'text/csv; charset=utf-8')
         lines = response.content.decode().splitlines()
         self.assertTrue(lines[0].startswith('zone,type,purdue_level'))
-        self.assertTrue(any(line.startswith('Cell,OT (control),1') for line in lines))
+        self.assertTrue(any(line.startswith('Cell,OT,1') for line in lines))

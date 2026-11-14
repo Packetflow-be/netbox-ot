@@ -52,6 +52,41 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
 - **Lists open the assessment from the first column.** The risk assessment list and the panels on zones and
   conduits start with an *Assessment* column ("Detailed 2026-10-01") that opens it; the zone or conduit keeps its
   own column. The status badge in the requirement status list opens that status.
+- **Stale flows are measured from the site's latest observation**, not from today: a flow is stale when it was
+  last seen `stale_after_days` before the newest observation at its site. A plant imported from an old capture
+  no longer has every flow stale (17 of 17 in the 4SICS test); a path that did not show up in the latest capture
+  still is. Applies to the `stale-flow` check, *Needs attention*, the `stale` filter and the API's `stale`
+  ([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)).
+- **A site without zones says where to start.** A site with networked devices but no zones gets the *OT
+  overview* tab with a *Where to start* card (import a capture with `--suggest-zone-map`, or add zones by hand,
+  then the checks), and its checks list those devices under `asset-without-zone`
+  ([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)).
+- **The OT panel on a device page moved to the left column**, where it no longer sits below the rack
+  elevations and other plugins' panels, and lists the flows the device itself was seen in (its address in the
+  evidence) before its zones' flows ([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)).
+- **Access map**: the tab badge counts the flows the table lists (into the default level or below), zone names
+  wrap between words, the evidence stays one line until opened, and the evidence on the flow and industrial
+  service pages wraps instead of running off the card ([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)).
+
+### Bug Fixes
+
+- Zeek import: COTP-only connections to an S7 PLC count under S7comm instead of making a second, unidentified
+  flow; a service Zeek guessed on a tenth or less of a port's connections (2 "smb" among Telnet on tcp/23) joins
+  the unidentified rest; S7 User-Data requests are named by their subfunction (`Read SZL`)
+  ([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)).
+- Modbus function 43 (Read Device Identification) and the S7 CPU and block functions (`Read SZL`, list blocks)
+  are reads, not "other"; `Set clock` is a write ([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)).
+- A flow from an external zone that carried only unidentified UDP, ICMP or a port scan is no longer marked as
+  remote access; its evidence says why ([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)).
+- An unchanged re-import no longer reports a flow as updated (evidence lines of equal count had no fixed order),
+  and addresses without a device or prefix are listed once per run instead of one line per host
+  ([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)).
+- A device that enforces a conduit (the firewall) is no longer reported by `asset-without-zone`
+  ([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)).
+- The zone type *OT (control)* is now labelled *OT*: a level-3 zone without a declared type is OT, not a control
+  zone (control zones are level 0-1 or safety, as before) ([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)).
+- The OT overview docs say that adding conduits raises the finding count first, and that one bulk edit sets the
+  owner and SL-T of the new conduits ([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)).
 
 ## 0.5.1 (2026-11-14)
 

@@ -60,8 +60,9 @@ class ChecksTest(TestCase):
         conduit.zones.set([cls.office, cls.cell])
         Flow.objects.create(name='expired', source_zone=cls.office, destination_zone=cls.cell, allowed='yes',
                             expires=TODAY - datetime.timedelta(days=1), conduit=conduit, decided_by=cls.contact)
+        # Seen today: the site's latest observation, which "old" below is measured from
         Flow.objects.create(name='supplier', source_zone=cls.office, destination_zone=cls.cell, allowed='yes',
-                            remote_access=True)
+                            remote_access=True, last_seen=timezone.now())
         # Writes to the cell through a broker in the office, topics not recorded
         Flow.objects.create(name='recipes', source_zone=cls.office, destination_zone=cls.cell, connection='brokered',
                             broker_zone=cls.office, access=['write'], conduit=conduit)
@@ -135,7 +136,7 @@ class ChecksTest(TestCase):
         })
         self.assertEqual(self._found('level-vs-zone-type'), {
             'hmi-1 (level 2) is a control asset in the Enterprise zone Office',
-            'laptop-1 (level 4) is an enterprise asset in the OT (control) zone Cell',
+            'laptop-1 (level 4) is an enterprise asset in the OT zone Cell',
         })
 
     def test_zone_membership(self):

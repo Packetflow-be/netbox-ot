@@ -59,6 +59,26 @@
     </div>
   </div>
 
+  {% if overview.start %}
+  {# A site without zones: say where to start instead of a page of empty panels #}
+  <div class="card" id="start">
+    <h2 class="card-header">{% trans "Where to start" %}</h2>
+    <div class="card-body">
+      <p>{% blocktrans count n=overview.start.assets %}This site has no OT zones yet, and {{ n }} device or VM with an address or a Purdue level that belongs in one.{% plural %}This site has no OT zones yet, and {{ n }} devices and VMs with an address or a Purdue level that belong in one.{% endblocktrans %}</p>
+      <ol class="ot-steps">
+        <li class="now"><span class="num">1</span><div><div class="what fw-semibold">{% trans "From a network capture (Zeek logs)" %}</div>
+          <div class="small">{% trans "List the networks the capture holds and write a zone map to edit, then import with it:" %}</div>
+          <pre class="small mb-0 mt-1" style="white-space: pre-wrap; overflow-wrap: anywhere;">manage.py ot_import &lt;logs&gt; --site {{ object.slug }} --suggest-zone-map zones.csv
+manage.py ot_import &lt;logs&gt; --site {{ object.slug }} --zone-map zones.csv --dry-run</pre></div></li>
+        <li><span class="num">2</span><div><div class="what fw-semibold">{% trans "Or by hand" %}</div>
+          <div class="small">{% trans "Add the zones (one per cell, the control room, the DMZ, suppliers as external zones), give each its Purdue level and put the devices in them." %} <a href="{{ overview.start.zone_add_url }}" class="d-print-none">{% trans "Add a zone" %}</a></div></div></li>
+        <li><span class="num">3</span><div><div class="what fw-semibold">{% trans "Then the checks" %}</div>
+          <div class="small">{% trans "They list what is missing or contradicts itself, starting with the paths into the controllers." %} <a href="{{ overview.start.checks_url }}" class="d-print-none">{% trans "Open the checks" %}</a></div></div></li>
+      </ol>
+    </div>
+  </div>
+  {% else %}
+
   {# Exposure and next steps: there from the first import on, before any level or assessment is recorded #}
   <div class="row row-cards mb-3" id="exposure">
     <div class="col-lg-5">
@@ -314,4 +334,5 @@
       </div>
     </div>
   </div>
+  {% endif %}
 {% endblock %}

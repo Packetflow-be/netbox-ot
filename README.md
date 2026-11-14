@@ -66,10 +66,11 @@ A flow with its verdict: allowed or not, decided by whom, until when, and the pa
 
 ![A flow from the MSP into the DMZ: RDP, remote access, allowed until a date by a named person, through a tunnel, a jump host and a firewall](https://raw.githubusercontent.com/Packetflow-be/netbox-ot/main/docs/flow.png)
 
-The OT overview of a site: achieved against target security level per foundational requirement, with the weakest
-zone named, and every zone and conduit sorted by how far below target it is.
+The OT overview of a site: what reaches the controllers and what to record next, then achieved against target
+security level per foundational requirement, with the weakest zone named, and every zone and conduit sorted by
+how far below target it is.
 
-![The OT overview: radar chart of achieved against target security level and the zones and conduits sorted by gap](https://raw.githubusercontent.com/Packetflow-be/netbox-ot/main/docs/overview.png)
+![The OT overview: exposure of the controllers, next steps, a radar chart of achieved against target security level and the zones and conduits sorted by gap](https://raw.githubusercontent.com/Packetflow-be/netbox-ot/main/docs/overview.png)
 
 A risk assessment: where it stands in the IEC 62443-3-2 steps, and the unmitigated, residual and tolerable risk on
 the organisation's risk matrix.

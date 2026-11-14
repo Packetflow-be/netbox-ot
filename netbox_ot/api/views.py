@@ -8,7 +8,7 @@ from dcim.api.serializers import SiteSerializer
 from dcim.models import Site
 from netbox.api.viewsets import NetBoxModelViewSet
 
-from .. import filtersets
+from .. import filtersets, staleness
 from ..accessmap import access_map_flows
 from ..checks import SEVERITIES, run_checks
 from ..choices import PurdueLevelChoices
@@ -59,10 +59,10 @@ class ConduitViewSet(NetBoxModelViewSet):
 
 
 class FlowViewSet(NetBoxModelViewSet):
-    queryset = Flow.objects.select_related(
+    # Annotated with the site's latest observation, so "stale" costs no query per flow
+    queryset = staleness.annotate(Flow.objects.select_related(
         'conduit__site', 'source_zone__site', 'destination_zone__site', 'broker_zone__site', 'decided_by',
-    ) \
-        .prefetch_related('tags', *FLOW_HOPS)
+    )).prefetch_related('tags', *FLOW_HOPS)
     serializer_class = FlowSerializer
     filterset_class = filtersets.FlowFilterSet
 
