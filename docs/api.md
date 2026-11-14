@@ -13,6 +13,7 @@ field.
 | `flows/` | Flows |
 | `flow-hops/` | Ordered hops of a flow (device, VM or VPN tunnel) |
 | `risk-assessments/` | Risk assessments of zones and conduits |
+| `risk-scenarios/` | Threat scenarios of a detailed risk assessment ([Risk assessments](risk-assessments.md#threat-scenarios)) |
 | `system-requirements/` | System requirements (IEC 62443-3-3) |
 | `requirement-statuses/` | Status of a requirement per zone or conduit |
 | `industrial-services/` | Industrial services on devices and VMs |
@@ -37,13 +38,17 @@ Useful flow filters: `site_id`, `source_zone_id`, `destination_zone_id`, `condui
 ## GraphQL
 
 Each object has a single and a list query: `ot_zone` / `ot_zone_list`, `ot_conduit(_list)`,
-`ot_flow(_list)`, `ot_flow_hop(_list)`, `ot_risk_assessment(_list)`,
+`ot_flow(_list)`, `ot_flow_hop(_list)`, `ot_risk_assessment(_list)`, `ot_risk_scenario(_list)`,
 `ot_system_requirement(_list)`, `ot_requirement_status(_list)`,
 `ot_fieldbus(_list)` and `ot_industrial_service(_list)`.
 
+Paginate every list query, as for NetBox's own objects: `pagination: {limit: 50}` with `offset`, or `start`
+(the last `id` you received + 1) to page through large sites. Ask for `id` when you page with `start`.
+
 ```graphql
 {
-  ot_flow_list(filters: {remote_access: {exact: true}}) {
+  ot_flow_list(filters: {remote_access: {exact: true}}, pagination: {limit: 50}) {
+    id
     source_zone { name }
     destination_zone { name }
     protocol
