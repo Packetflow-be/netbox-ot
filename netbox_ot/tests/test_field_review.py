@@ -5,6 +5,7 @@ badge, and the OT panel on the device page.
 """
 import datetime
 
+from django.conf import settings
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -151,7 +152,7 @@ class StaleTest(TestCase):
         from netbox_ot.filtersets import FlowFilterSet
         self.assertEqual([f.name for f in FlowFilterSet({'stale': True}, Flow.objects.all()).qs], ['earlier'])
         self.assertEqual(FlowFilterSet({'stale': False}, Flow.objects.all()).qs.count(), 2)
-        with override_settings(PLUGINS_CONFIG={'netbox_ot': {'stale_after_days': 120}}):
+        with override_settings(PLUGINS_CONFIG={**settings.PLUGINS_CONFIG, 'netbox_ot': {'stale_after_days': 120}}):
             self.assertFalse(Flow.objects.get(pk=self.earlier.pk).is_stale)
 
 
