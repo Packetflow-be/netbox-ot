@@ -6,6 +6,34 @@ Every site with zones has an *OT overview* tab: where the site stands, on one pa
 entered here. It is all derived from the zones, conduits, risk assessments and requirement statuses, so it is
 as good as what is recorded there.
 
+## Exposure of the controllers and next steps
+
+The first two cards need no levels or assessments, so they say something from the first import on.
+
+*Exposure of the controllers* counts the control zones (Purdue level 0 or 1, or a safety zone) and the flows
+into them: how many write, control or program, are remote access, come from a DMZ, enterprise or external zone,
+or are allowed straight from outside, and how many external zones the site has. A red banner gives the number
+of flows into a control zone that change it, are remote access or come from outside, and that nobody decided
+on yet, with a link to exactly those flows. These are the conditions of the checks `undecided-into-control` and
+`outside-into-control`.
+
+*Next steps* lists what to record next, in the order that clears the most findings for the least work:
+
+1. the devices: zones without devices or VMs (`ot_import --unknown-import` writes the files for NetBox's import
+   pages);
+2. a verdict on the flows into control zones that change them, are remote access or come from outside;
+3. an accountable person, a target level and an achieved level per zone (the radar chart needs both levels);
+4. conduits for the flows that run outside any conduit;
+5. risk assessments and requirement statuses.
+
+Each step says how many objects are left and links to the list of them, where one bulk edit sets a field on
+all of them. The first open step is marked *now*; a step with nothing left is ticked. External zones (a
+supplier, an MSP, the internet) are outside the system under consideration: they count as exposure, never as
+missing paperwork.
+
+The headline cards below show "—" instead of 0 while there is nothing to count: no zone with a target level,
+no requirement status, no approved risk assessment.
+
 ## Security levels per foundational requirement
 
 The radar chart has one spoke per foundational requirement of IEC 62443 (IAC, UC, SI, DC, RDF, TRE, RA). The
