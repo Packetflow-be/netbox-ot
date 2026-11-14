@@ -3,7 +3,14 @@
 Each release opens with what kind of release it is. Breaking changes are listed under **Breaking Changes**.
 Numbers link to the issue or pull request on GitHub; entries without a number predate the public repository.
 
-## Unreleased
+## 0.6.0 (2026-11-14)
+
+Minor release: the risk assessment rework ([#46](https://github.com/Packetflow-be/netbox-ot/issues/46)): threat
+scenarios for the IEC 62443-3-2 detailed assessment, recorded acceptance of a residual risk above tolerable, the SL-T
+an assessment arrives at, and a risk register per site and tenant. Also the last polish from the field review
+([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)) and a fix for permissions constrained to a site in the
+zone register ([#54](https://github.com/Packetflow-be/netbox-ot/pull/54)). No breaking changes; upgrading from 0.5.x
+runs two migrations (`0006_risk_acceptance_sl_target`, optional fields; `0007_risk_scenarios`, a new model).
 
 ### Enhancements
 
