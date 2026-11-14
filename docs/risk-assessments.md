@@ -26,13 +26,33 @@ Under the step it is at, it says what is still missing, with a button to move on
 |---|---|
 | A step with something missing | *Fill in: ...* opens the edit form at the first missing field |
 | Detailed assessment, on an initial one | *Start the detailed assessment*: a new detailed assessment of the same zone or conduit, with the tolerable risk, method and the initial likelihood and impact filled in |
-| Residual risk above tolerable | *Add countermeasures* or *Update the residual risk* |
+| Residual risk above tolerable | *Add countermeasures*, *Update the residual risk* or *Accept the residual risk* (today's date filled in) |
 | Approval | *Approve* opens the form with status *Approved* and today's date filled in; you add who approved it and the next review |
 
 The buttons need the permission to change (or, for a new detailed assessment, to add) risk assessments.
 
 The list of risk assessments has a *Step* column with the same step, so you can see which assessments are waiting
 for what; the API has it as the read-only `current_step`. The first column of the list opens the assessment.
+
+## Outcome: SL-T and accepting a residual risk
+
+A detailed assessment ends in the **SL-T** of its zone or conduit (IEC 62443-3-2). Record it on the assessment
+(*Treatment*, one level or seven per FR); the *Outcome* panel compares it with the zone's or conduit's SL-T and, with
+the permission to change that zone or conduit, offers *Set it on ...* to copy it over. The check
+`sl-target-differs` (warning) reports a zone or conduit whose SL-T differs from what its approved assessment
+arrived at.
+
+When the residual risk stays above the tolerable risk, either treat it further or let the asset owner **accept** it
+explicitly: who accepted it, when, why, and (recommended) until when. An acceptance with all of who, when and why
+that has not ended:
+
+- completes the *Residual risk within tolerable?* step ("No, but accepted by ... until ...");
+- moves the zone or conduit to *Accepted above tolerable* in the risk register;
+- turns the `residual-above-tolerable` error into the `risk-accepted` info finding.
+
+After the end date the acceptance no longer counts: the error comes back, saying the acceptance ended. A partial
+acceptance (a name without a reason, say) is refused. The list has a *Above tolerable, accepted* filter; the API
+has `risk_accepted` (read-only).
 
 ## What's in scope (now)
 

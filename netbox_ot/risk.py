@@ -173,7 +173,8 @@ def steps(assessment, others=()):
     else:
         missing = [not a.threats and _('threats'), not a.vulnerabilities and _('vulnerabilities'),
                    not a.consequences and _('consequences'),
-                   not (a.unmitigated_likelihood and a.unmitigated_impact) and _('likelihood and impact (unmitigated)')]
+                   not (a.unmitigated_likelihood and a.unmitigated_impact) and _('likelihood and impact (unmitigated)'),
+                   not a.sl_target and _('the SL-T it arrives at')]
         # Threats make it a detailed assessment; the rest is asked for without holding the next steps back
         step('detailed', _('Detailed assessment (ZCR 5)'), bool(a.threats), missing, skipped=stop, field='threats')
     # 4. Countermeasures
@@ -182,12 +183,23 @@ def steps(assessment, others=()):
          field='countermeasures')
     # 5. Residual risk against tolerable risk
     over = a.residual_above_tolerable
-    step('residual', _('Residual risk within tolerable?'), bool(a.residual_risk) and not over,
+    accepted = a.risk_accepted
+    if accepted:
+        note = _('No, but accepted by {who} on {on}{until}').format(
+            who=a.risk_accepted_by, on=a.risk_accepted_on,
+            until=_(' until {date}').format(date=a.risk_accepted_until) if a.risk_accepted_until else '')
+    elif over and a.acceptance_expired:
+        note = _('No: residual risk is above tolerable, and its acceptance ended on {date}').format(
+            date=a.risk_accepted_until)
+    elif over:
+        note = _('No: residual risk is above tolerable')
+    else:
+        note = _('Yes') if a.residual_risk else ''
+    step('residual', _('Residual risk within tolerable?'), bool(a.residual_risk) and (not over or accepted),
          [not a.residual_risk and _('the residual risk'),
-          over and _('more countermeasures, or an explicit acceptance of the residual risk')],
-         skipped=stop or initial and not a.residual_risk, attention=over,
-         field='countermeasures' if over else 'residual_likelihood',
-         note=_('No: residual risk is above tolerable') if over else _('Yes') if a.residual_risk else '')
+          over and not accepted and _('more countermeasures, or an explicit acceptance of the residual risk')],
+         skipped=stop or initial and not a.residual_risk, attention=over and not accepted,
+         field='countermeasures' if over else 'residual_likelihood', note=note)
     # 6. Approval by the asset owner
     approved = a.status == RiskAssessmentStatusChoices.APPROVED
     step('approval', _('Approval'), approved and bool(a.approved_by_id),

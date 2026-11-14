@@ -113,6 +113,8 @@ class RiskAssessmentType(PrimaryObjectType):
     conduit: Annotated['ConduitType', strawberry.lazy('netbox_ot.graphql.types')] | None
     assessed_by: Annotated['ContactType', strawberry.lazy('tenancy.graphql.types')] | None
     approved_by: Annotated['ContactType', strawberry.lazy('tenancy.graphql.types')] | None
+    risk_accepted_by: Annotated['ContactType', strawberry.lazy('tenancy.graphql.types')] | None
+    sl_target: list[int] | None
     requirement_statuses: list[
         Annotated['RequirementStatusType', strawberry.lazy('netbox_ot.graphql.types')]
     ]

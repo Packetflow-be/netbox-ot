@@ -93,6 +93,12 @@ class ChecksTest(TestCase):
         SystemRequirement.objects.create(identifier='SR 1.2', foundational_requirement='iac', security_level=2)
         RequirementStatus.objects.create(zone=self.cell, requirement=sr11, status='not-met')
         self._flow_into_other_plant()
+        # The cell's assessment arrived at another SL-T than the cell has; the conduit's residual risk is accepted
+        RiskAssessment.objects.filter(zone=self.cell).update(sl_target=[3] * 7)
+        RiskAssessment.objects.create(
+            conduit=Conduit.objects.get(name='Office - Cell'), assessed_on=TODAY, status='approved', approved_on=TODAY,
+            residual_risk='high', tolerable_risk='medium', risk_accepted_by=self.contact, risk_accepted_on=TODAY,
+            risk_acceptance='Replaced next year')
         found = {f.check for f in run_checks(site=self.site)}
         # The end-of-support checks need netbox-lifecycle data: test_lifecycle.py
         self.assertEqual(found, set(CHECKS) - {'end-of-support', 'end-of-support-ahead'})

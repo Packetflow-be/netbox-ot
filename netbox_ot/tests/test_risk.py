@@ -135,7 +135,8 @@ class RiskStepsTest(RiskTestBase):
         states = self._states(a)
         self.assertEqual((states['detailed'], states['countermeasures']), ('done', 'current'))
         missing = {s['key']: s['missing'] for s in risk.steps(a)}
-        self.assertEqual(missing['detailed'], ['consequences', 'likelihood and impact (unmitigated)'])
+        self.assertEqual(missing['detailed'], ['consequences', 'likelihood and impact (unmitigated)',
+                                              'the SL-T it arrives at'])
         a.countermeasures, a.residual_risk = 'firewall', 'high'
         self.assertEqual(self._states(a)['residual'], 'attention')
         self.assertEqual(a.current_step, 'Residual risk within tolerable?')

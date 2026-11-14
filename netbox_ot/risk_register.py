@@ -18,16 +18,18 @@ from .choices import RiskAssessmentStatusChoices, RiskLevelChoices, ZoneTypeChoi
 from .models import RiskAssessment
 
 # Worst first
-ABOVE, UNASSESSED, DUE, WITHIN = 'above', 'unassessed', 'due', 'within'
+ABOVE, ACCEPTED, UNASSESSED, DUE, WITHIN = 'above', 'accepted', 'unassessed', 'due', 'within'
 BUCKETS = {
     ABOVE: (_('Above tolerable'), 'red'),
+    ACCEPTED: (_('Accepted above tolerable'), 'purple'),
     UNASSESSED: (_('No approved assessment'), 'orange'),
     DUE: (_('Review due'), 'yellow'),
     WITHIN: (_('Within tolerable'), 'green'),
 }
 CSV_COLUMNS = (
     'status', 'kind', 'name', 'site', 'tenant', 'purdue_level', 'sl_target', 'assessment', 'assessment_status',
-    'step', 'unmitigated_risk', 'residual_risk', 'tolerable_risk', 'next_review', 'ways_in', 'remote_access',
+    'step', 'unmitigated_risk', 'residual_risk', 'tolerable_risk', 'accepted_until', 'next_review', 'ways_in',
+    'remote_access',
     'errors', 'warnings',
 )
 
@@ -56,7 +58,7 @@ def build_risk_register(user=None, site=None, tenant=None):
 
     # Every assessment of the subjects in scope, per subject
     assessments = RiskAssessment.objects.filter(Q(zone__in=zones) | Q(conduit__in=conduits)).select_related(
-        'zone', 'conduit', 'approved_by')
+        'zone', 'conduit', 'approved_by', 'risk_accepted_by')
     if user is not None:
         assessments = assessments.restrict(user, 'view')
     per_subject = defaultdict(list)
@@ -108,6 +110,8 @@ def build_risk_register(user=None, site=None, tenant=None):
             shown = approved or in_progress
             if approved is None:
                 bucket = UNASSESSED
+            elif approved.risk_accepted:
+                bucket = ACCEPTED
             elif approved.residual_above_tolerable:
                 bucket = ABOVE
             elif approved.next_review and approved.next_review <= today:
@@ -138,6 +142,7 @@ def build_risk_register(user=None, site=None, tenant=None):
                 'residual': shown.residual_risk if shown else '',
                 'tolerable': shown.tolerable_risk if shown else '',
                 'next_review': approved.next_review if approved else None,
+                'accepted_until': approved.risk_accepted_until if approved and approved.risk_accepted else None,
                 'ways_in': ways_in.get(subject, 0),
                 'remote': remote.get(subject, 0),
                 'findings': findings.get(subject, {'error': 0, 'warning': 0, 'info': 0}),
@@ -182,6 +187,7 @@ def risk_register_csv(register):
             'unmitigated_risk': str(labels.get(r['unmitigated'], '')),
             'residual_risk': str(labels.get(r['residual'], '')),
             'tolerable_risk': str(labels.get(r['tolerable'], '')),
+            'accepted_until': r['accepted_until'].isoformat() if r['accepted_until'] else '',
             'next_review': r['next_review'].isoformat() if r['next_review'] else '',
             'ways_in': r['ways_in'],
             'remote_access': r['remote'],

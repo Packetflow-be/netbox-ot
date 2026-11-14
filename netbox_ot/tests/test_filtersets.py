@@ -185,7 +185,8 @@ class FlowHopFilterSetTest(TestCase, ChangeLoggedFilterSetTestMixin):
 class RiskAssessmentFilterSetTest(TestCase, ChangeLoggedFilterSetTestMixin):
     queryset = RiskAssessment.objects.all()
     filterset = RiskAssessmentFilterSet
-    ignore_fields = ('threats', 'vulnerabilities', 'consequences', 'countermeasures', 'document')
+    ignore_fields = ('threats', 'vulnerabilities', 'consequences', 'countermeasures', 'document', 'sl_target',
+                     'risk_acceptance')
 
     @classmethod
     def setUpTestData(cls):

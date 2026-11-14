@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.db.models import Count, Q
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -112,6 +112,20 @@ class RiskLevelsPanel(panels.ObjectAttributesPanel):
     residual_above_tolerable = attrs.BooleanAttr('residual_above_tolerable', label=_('Residual above tolerable'))
 
 
+class RiskOutcomePanel(panels.Panel):
+    """What the assessment arrives at: the SL-T for its zone or conduit, and an acceptance of a residual risk."""
+    template_name = 'netbox_ot/inc/risk_outcome_panel.html'
+    title = _('Outcome')
+
+    def get_context(self, context):
+        obj = context['object']
+        user = context['request'].user
+        subject = obj.subject
+        can_apply = bool(subject is not None and obj.sl_target_differs and type(subject).objects.restrict(
+            user, 'change').filter(pk=subject.pk).exists())
+        return {**super().get_context(context), 'subject': subject, 'can_apply': can_apply}
+
+
 class RiskMatrixPanel(panels.Panel):
     """The risk matrix with the unmitigated and residual risk of the assessment on it, and the tolerable risk."""
     template_name = 'netbox_ot/inc/risk_matrix_panel.html'
@@ -172,9 +186,11 @@ class RiskStepsPanel(panels.Panel):
                              approved_on=timezone.localdate().isoformat())]
             return [fill(_('Record who approved it and the next review'), 'approved_by')]
         if step['state'] == 'attention':
-            # Residual above tolerable: treat it further (an explicit acceptance is not modelled yet, #46)
+            # Residual above tolerable: treat it further, or the asset owner accepts it explicitly
             return [fill(_('Add countermeasures'), 'countermeasures'),
-                    fill(_('Update the residual risk'), 'residual_likelihood')]
+                    fill(_('Update the residual risk'), 'residual_likelihood'),
+                    fill(_('Accept the residual risk'), 'risk_accepted_by',
+                         risk_accepted_on=timezone.localdate().isoformat())]
         if step['field']:
             return [fill(_('Fill in: {what}').format(what=', '.join(str(m) for m in step['missing'])),
                          step['field'])]
@@ -607,6 +623,7 @@ class RiskAssessmentView(generic.ObjectView):
         right_panels=[
             RiskMatrixPanel(),
             RiskLevelsPanel(title=_('Risk')),
+            RiskOutcomePanel(),
             panels.TextCodePanel('threats', title=_('Threats')),
             panels.TextCodePanel('vulnerabilities', title=_('Vulnerabilities')),
             panels.TextCodePanel('consequences', title=_('Consequences')),
@@ -618,6 +635,27 @@ class RiskAssessmentView(generic.ObjectView):
             RiskScopePanel(),
         ],
     )
+
+
+@register_model_view(RiskAssessment, 'apply_sl_target', path='apply-sl-target')
+class RiskAssessmentApplySLTargetView(View):
+    """Copy the SL-T an assessment arrives at onto its zone or conduit (POST; needs change on that zone/conduit)."""
+
+    def post(self, request, pk):
+        ra = RiskAssessment.objects.restrict(request.user, 'view').filter(pk=pk).first()
+        if ra is None or ra.subject is None:
+            raise Http404
+        subject = type(ra.subject).objects.restrict(request.user, 'change').filter(pk=ra.subject.pk).first()
+        if subject is None:
+            return HttpResponseForbidden()
+        if ra.sl_target:
+            subject.snapshot()
+            subject.sl_target = list(ra.sl_target)
+            subject.full_clean()
+            subject.save()
+            messages.success(request, _('{subject} now has SL-T {sl}, from {ra}.').format(
+                subject=subject, sl=subject.sl_target_display, ra=ra))
+        return redirect(ra.get_absolute_url())
 
 
 @register_model_view(RiskAssessment, 'add', detail=False)

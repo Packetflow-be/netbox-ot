@@ -1,0 +1,52 @@
+{% extends 'ui/panels/_base.html' %}
+{% load i18n %}
+{% block panel_content %}
+  <table class="table table-hover attr-table mb-0">
+    <tr>
+      <th scope="row">{% trans "SL-T it arrives at" %}</th>
+      <td>
+        {% if object.sl_target %}
+          {{ object.sl_target_display }}
+          {% if subject %}
+            {% if object.sl_target_differs %}
+              <div class="small text-danger">
+                {% if subject.sl_target %}{% blocktrans with subject=subject current=subject.sl_target_display %}{{ subject }} has SL-T {{ current }}{% endblocktrans %}{% else %}{% blocktrans with subject=subject %}{{ subject }} has no SL-T yet{% endblocktrans %}{% endif %}
+              </div>
+              {% if can_apply %}
+                <form method="post" action="{% url 'plugins:netbox_ot:riskassessment_apply_sl_target' pk=object.pk %}" class="d-print-none mt-1">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-primary">
+                    <i class="mdi mdi-shield-check"></i> {% blocktrans with subject=subject %}Set it on {{ subject }}{% endblocktrans %}
+                  </button>
+                </form>
+              {% endif %}
+            {% else %}
+              <span class="text-muted small">({% blocktrans with subject=subject %}as on {{ subject }}{% endblocktrans %})</span>
+            {% endif %}
+          {% endif %}
+        {% else %}
+          {{ ''|placeholder }}
+          {% if object.kind == 'detailed' %}<div class="small text-muted">{% trans "A detailed assessment ends in the SL-T of its zone or conduit." %}</div>{% endif %}
+        {% endif %}
+      </td>
+    </tr>
+    <tr>
+      <th scope="row">{% trans "Residual risk acceptance" %}</th>
+      <td>
+        {% if object.acceptance_recorded %}
+          {% if object.risk_accepted %}<span class="badge text-bg-purple">{% trans "accepted" %}</span>
+          {% elif object.acceptance_expired %}<span class="badge text-bg-red">{% trans "ended" %}</span>
+          {% else %}<span class="badge text-bg-secondary">{% trans "recorded, not needed" %}</span>{% endif %}
+          <div class="small mt-1">
+            {% blocktrans with who=object.risk_accepted_by on=object.risk_accepted_on|date:"Y-m-d" %}By {{ who }} on {{ on }}{% endblocktrans %}{% if object.risk_accepted_until %}, {% blocktrans with until=object.risk_accepted_until|date:"Y-m-d" %}until {{ until }}{% endblocktrans %}{% else %}, <span class="text-warning">{% trans "without an end date" %}</span>{% endif %}
+          </div>
+          <div class="small text-muted">{{ object.risk_acceptance|linebreaksbr }}</div>
+        {% elif object.residual_above_tolerable %}
+          <span class="text-danger small">{% trans "The residual risk is above tolerable and nobody accepted it." %}</span>
+        {% else %}
+          <span class="text-muted small">{% trans "Not needed: the residual risk is within tolerable." %}</span>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+{% endblock %}

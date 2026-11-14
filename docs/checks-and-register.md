@@ -23,7 +23,9 @@ Then:
   enforces;
 - expired or open-ended remote access, flows outside any conduit, writes through a broker without their
   topics, verdicts without a decider, stale flows;
-- residual risk above tolerable, overdue risk assessments;
+- residual risk above tolerable (unless the asset owner accepted it, then an info finding until the acceptance
+  ends), overdue risk assessments, an SL-T that differs from what the approved risk assessment arrived at
+  ([Risk assessments](risk-assessments.md#outcome-sl-t-and-accepting-a-residual-risk));
 - IEC 62443-3-3 requirements that apply at the SL-T without a status, and an SL-A claimed with a requirement
   not met ([System requirements](requirements.md));
 - what an audit will ask for and is missing: no SL-T, no accountable person, no approved risk assessment
@@ -54,6 +56,7 @@ exported as CSV.
 | Status | When |
 |---|---|
 | Above tolerable | The latest approved assessment has a residual risk above its tolerable risk |
+| Accepted above tolerable | As above, but the asset owner accepted it and the acceptance has not ended (its end date is shown) |
 | No approved assessment | No approved assessment yet; a draft in progress is shown with the step it is at, else an *Assess* button starts an initial one |
 | Review due | Approved and within tolerable, but the next review date has passed |
 | Within tolerable | Approved, within tolerable and not due |

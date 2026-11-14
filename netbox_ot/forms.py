@@ -732,6 +732,14 @@ class RiskAssessmentForm(PrimaryModelForm):
     )
     assessed_by = DynamicModelChoiceField(label=_('Assessed by'), queryset=Contact.objects.all(), required=False)
     approved_by = DynamicModelChoiceField(label=_('Approved by'), queryset=Contact.objects.all(), required=False)
+    risk_accepted_by = DynamicModelChoiceField(
+        label=_('Risk accepted by'), queryset=Contact.objects.all(), required=False,
+        help_text=RiskAssessment._meta.get_field('risk_accepted_by').help_text,
+    )
+    sl_target = SLVectorField(
+        label=_('SL-T'), help_text=_('The security level target this assessment arrives at: one level for every FR '
+                                     '(e.g. "2"), or seven in FR order IAC, UC, SI, DC, RDF, TRE, RA'),
+    )
 
     fieldsets = (
         FieldSet('site', 'zone', 'conduit', 'kind', 'status', 'description', 'tags', name=_('Risk assessment')),
@@ -740,7 +748,9 @@ class RiskAssessmentForm(PrimaryModelForm):
         FieldSet('threats', 'vulnerabilities', 'consequences', 'unmitigated_likelihood', 'unmitigated_impact',
                  'unmitigated_risk', name=_('Risk')),
         FieldSet('countermeasures', 'residual_likelihood', 'residual_impact', 'residual_risk', 'tolerable_risk',
-                 name=_('Treatment')),
+                 'sl_target', name=_('Treatment')),
+        FieldSet('risk_accepted_by', 'risk_accepted_on', 'risk_accepted_until', 'risk_acceptance',
+                 name=_('Acceptance of a residual risk above tolerable')),
     )
 
     def __init__(self, *args, **kwargs):
@@ -763,13 +773,17 @@ class RiskAssessmentForm(PrimaryModelForm):
             'zone', 'conduit', 'kind', 'status', 'assessed_on', 'assessed_by', 'approved_on', 'approved_by',
             'next_review', 'method', 'document', 'threats', 'vulnerabilities', 'consequences',
             'unmitigated_likelihood', 'unmitigated_impact', 'unmitigated_risk', 'countermeasures',
-            'residual_likelihood', 'residual_impact', 'residual_risk', 'tolerable_risk', 'description', 'owner',
+            'residual_likelihood', 'residual_impact', 'residual_risk', 'tolerable_risk', 'sl_target',
+            'risk_accepted_by', 'risk_accepted_on', 'risk_accepted_until', 'risk_acceptance', 'description', 'owner',
             'comments', 'tags',
         )
         widgets = {
             'assessed_on': DatePicker(),
             'approved_on': DatePicker(),
             'next_review': DatePicker(),
+            'risk_accepted_on': DatePicker(),
+            'risk_accepted_until': DatePicker(),
+            'risk_acceptance': forms.Textarea(attrs={'rows': 3}),
             'threats': forms.Textarea(attrs={'rows': 3}),
             'vulnerabilities': forms.Textarea(attrs={'rows': 3}),
             'consequences': forms.Textarea(attrs={'rows': 3}),
@@ -815,6 +829,10 @@ class RiskAssessmentImportForm(PrimaryModelImportForm):
     unmitigated_risk = CSVChoiceField(label=_('Unmitigated risk'), choices=RiskLevelChoices, required=False)
     residual_risk = CSVChoiceField(label=_('Residual risk'), choices=RiskLevelChoices, required=False)
     tolerable_risk = CSVChoiceField(label=_('Tolerable risk'), choices=RiskLevelChoices, required=False)
+    sl_target = SLVectorField(label=_('SL-T'))
+    risk_accepted_by = CSVModelChoiceField(
+        label=_('Risk accepted by'), queryset=Contact.objects.all(), required=False, to_field_name='name',
+    )
 
     class Meta:
         model = RiskAssessment
@@ -822,7 +840,8 @@ class RiskAssessmentImportForm(PrimaryModelImportForm):
             'site', 'zone', 'conduit', 'kind', 'status', 'assessed_on', 'assessed_by', 'approved_on', 'approved_by',
             'next_review', 'method', 'document', 'threats', 'vulnerabilities', 'consequences',
             'unmitigated_likelihood', 'unmitigated_impact', 'unmitigated_risk', 'countermeasures',
-            'residual_likelihood', 'residual_impact', 'residual_risk', 'tolerable_risk', 'description', 'owner',
+            'residual_likelihood', 'residual_impact', 'residual_risk', 'tolerable_risk', 'sl_target',
+            'risk_accepted_by', 'risk_accepted_on', 'risk_accepted_until', 'risk_acceptance', 'description', 'owner',
             'comments', 'tags',
         )
 
@@ -837,7 +856,8 @@ class RiskAssessmentFilterForm(PrimaryModelFilterSetForm):
     fieldsets = (
         FieldSet('q', 'filter_id', 'tag'),
         FieldSet('site_id', 'zone_id', 'conduit_id', 'kind', 'status', name=_('Risk assessment')),
-        FieldSet('residual_risk', 'tolerable_risk', 'residual_above_tolerable', 'review_due', name=_('Risk')),
+        FieldSet('residual_risk', 'tolerable_risk', 'residual_above_tolerable', 'risk_accepted', 'review_due',
+                 name=_('Risk')),
         FieldSet('assessed_by_id', 'approved_by_id', name=_('People')),
     )
     site_id = DynamicModelMultipleChoiceField(queryset=Site.objects.all(), required=False, label=_('Site'))
@@ -849,6 +869,9 @@ class RiskAssessmentFilterForm(PrimaryModelFilterSetForm):
     tolerable_risk = forms.MultipleChoiceField(label=_('Tolerable risk'), choices=RiskLevelChoices, required=False)
     residual_above_tolerable = forms.NullBooleanField(
         label=_('Residual above tolerable'), required=False, widget=forms.Select(choices=BOOLEAN_WITH_BLANK_CHOICES),
+    )
+    risk_accepted = forms.NullBooleanField(
+        label=_('Above tolerable, accepted'), required=False, widget=forms.Select(choices=BOOLEAN_WITH_BLANK_CHOICES),
     )
     review_due = forms.NullBooleanField(
         label=_('Review due'), required=False, widget=forms.Select(choices=BOOLEAN_WITH_BLANK_CHOICES),

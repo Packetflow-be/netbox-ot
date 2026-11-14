@@ -7,6 +7,16 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
 
 ### Enhancements
 
+- **Accepting a residual risk above tolerable** ([#46](https://github.com/Packetflow-be/netbox-ot/issues/46)):
+  record who accepted it, when, why and until when (migration 0006, all optional). An acceptance that has not
+  ended completes the step, puts the zone or conduit under *Accepted above tolerable* in the risk register and
+  turns the `residual-above-tolerable` error into the `risk-accepted` info finding; after its end date the error
+  is back. Filter *Above tolerable, accepted*; API `risk_accepted`.
+- **SL-T from the assessment**: a risk assessment records the SL-T it arrives at; the *Outcome* panel compares it
+  with the zone's or conduit's SL-T and can set it there, and the check `sl-target-differs` (warning) reports a
+  zone or conduit whose SL-T differs from its approved assessment. A detailed assessment lists the SL-T as still
+  missing until it is recorded.
+
 - **A risk assessment shows what is at risk**
   ([#46](https://github.com/Packetflow-be/netbox-ot/issues/46)). A new panel on the assessment, *What's in
   scope (now)*, lists the ways into its zone (or the flows of its conduit) with the most exposed first (remote

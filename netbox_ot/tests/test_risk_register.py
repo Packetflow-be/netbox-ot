@@ -77,7 +77,7 @@ class RiskRegisterTest(TestCase):
         self.assertIsNone(rows['Scada']['approved'])
         self.assertEqual(rows['Scada']['step'], 'Detailed assessment (ZCR 5)')
         self.assertEqual(dict((b, n) for b, _l, _c, n in register['buckets']),
-                         {ABOVE: 1, UNASSESSED: 2, DUE: 1, WITHIN: 1})
+                         {ABOVE: 1, 'accepted': 0, UNASSESSED: 2, DUE: 1, WITHIN: 1})
 
     def test_tenant_scope(self):
         rows = self._rows(tenant=self.tenant)
