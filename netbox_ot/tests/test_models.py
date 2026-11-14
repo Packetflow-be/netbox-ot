@@ -1,5 +1,6 @@
 import datetime
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
@@ -137,7 +138,7 @@ class FlowTest(TestCase):
         self.assertTrue(flow.is_stale)
         flow.allowed = 'no'
         self.assertFalse(flow.is_expired)  # only an allowed flow expires
-        with override_settings(PLUGINS_CONFIG={'netbox_ot': {'stale_after_days': 365}}):
+        with override_settings(PLUGINS_CONFIG={**settings.PLUGINS_CONFIG, 'netbox_ot': {'stale_after_days': 365}}):
             self.assertFalse(flow.is_stale)
 
     def test_zone_with_flows_cannot_be_deleted(self):

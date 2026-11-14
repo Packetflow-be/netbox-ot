@@ -98,6 +98,9 @@ class FlowPlan:
     connection: str = ConnectionChoices.CLIENT_SERVER
     broker_zone: str = ''  # zone name, for a flow through a broker
     topics: list = field(default_factory=list)
+    # False when every request is unidentified and connectionless (UDP, ICMP, IP): such a flow out of an external
+    # zone is not remote access by itself (a stray packet, a scan's probe), only one with a session is
+    session: bool = True
 
 
 @dataclass
@@ -301,6 +304,21 @@ def _band(level):
     return BANDS[0] if level <= 1 else BANDS[1] if level <= 2 else BANDS[2]
 
 
+def _has_session(request):
+    """
+    False only for what is clearly not a session: a port scan's requests, and unidentified connectionless
+    traffic (UDP, ICMP, plain IP) without a function. Anything else, an unknown protocol name included, counts.
+    """
+    if request.proto == 'port scan':
+        return False
+    if request.protocol or request.func or request.broker or request.connection != ConnectionChoices.CLIENT_SERVER:
+        return True
+    proto = request.proto.lower()
+    connectionless = request.port_mapping.startswith('udp/') or proto in ('udp', 'icmp', 'ip') or \
+        proto.startswith(('udp/', 'icmp'))
+    return not connectionless
+
+
 def _zone_type(level, declared):
     """A new zone's type: as declared in summary.json, else 3.5 is a DMZ, 4 and 5 enterprise, the rest OT."""
     if declared:
@@ -453,7 +471,8 @@ def build_plan(assets, flows, summary, outside_zone='Outside', split_zones=None)
         for name in (src, dst, broker_zone):
             if name == outside_zone:
                 ensure_outside()
-        crossing = sorted(ot.get(key, []), key=lambda r: -r.count)
+        # A total order (count, then the line itself): a re-run writes the same evidence and reports no change
+        crossing = sorted(ot.get(key, []), key=lambda r: (-r.count, r.line))
         # The flow's own count first; the zone pair's total (every protocol between the two zones) after it
         if crossing:
             lines = [f'Passively seen: {sum(r.count for r in crossing)} request(s) on this flow in {seen_in}.']
@@ -486,6 +505,7 @@ def build_plan(assets, flows, summary, outside_zone='Outside', split_zones=None)
             port_mappings=list(dict.fromkeys(r.port_mapping for r in crossing if r.port_mapping)),
             access=sorted({r.access for r in crossing if r.access != UNCLASSIFIED}, key=CLASSES.index),
             remote_access=any(by_ip.get(r.src, {}).get('remote_access') for r in crossing),
+            session=not crossing or any(_has_session(r) for r in crossing),
             first_seen=min(times_first) if times_first else None,
             last_seen=max(times_last) if times_last else None,
             evidence='\n'.join(lines),
@@ -792,6 +812,19 @@ class _Resolver:
         self.site, self.vrf, self.log, self.stats = site, vrf, log, stats
         self.where = f"site {site}" + (f", VRF {vrf}" if vrf else ', global table')
         self._assets, self._prefixes = {}, {}
+        # Addresses without a device/VM or a prefix: one line each at the end (report()), not one per host
+        self.without_asset, self.without_prefix = [], []
+
+    def report(self, shown=8):
+        def addresses(ips):
+            ips = sorted(ips, key=ipaddress.ip_address)
+            return ', '.join(ips[:shown]) + (f' and {len(ips) - shown} more' if len(ips) > shown else '')
+        if self.without_asset:
+            self.log(f'no device or VM has this primary IPv4 ({self.where}), {len(self.without_asset)} address(es): '
+                     f'{addresses(self.without_asset)}; --unknown-import writes files to add them')
+        if self.without_prefix:
+            self.log(f'no prefix in NetBox holds this address ({self.where}), {len(self.without_prefix)} '
+                     f"address(es): {addresses(self.without_prefix)}; add the plant's prefixes to link them to zones")
 
     def asset(self, ip):
         """The one device or VM with this primary IPv4 in the site and VRF, else None (logged once)."""
@@ -805,7 +838,7 @@ class _Resolver:
         asset = found[0] if len(found) == 1 else None
         if not found:
             self.stats['assets not found in NetBox'] += 1
-            self.log(f'{ip}: no device or VM with this primary IPv4 ({self.where})')
+            self.without_asset.append(ip)
         elif len(found) > 1:
             self.stats['assets matched more than once (skipped)'] += 1
             self.log(f"{ip}: several devices/VMs have this primary IPv4 ({self.where}): "
@@ -847,7 +880,7 @@ class _Resolver:
         prefix = ranked[0] if ranked else None
         if not ranked:
             self.stats['addresses without a prefix in NetBox'] += 1
-            self.log(f'{ip}: no prefix in NetBox holds this address ({self.where})')
+            self.without_prefix.append(ip)
         elif len(ranked) > 1 and rank(ranked[0]) == rank(ranked[1]):
             prefix = None
             self.stats['addresses in duplicate prefixes (skipped)'] += 1
@@ -1008,15 +1041,21 @@ def apply_plan(plan, site, vrf=None, log=print, move=False):
         else:
             flow.snapshot()
         # Observations are merged; the verdict, its decider and dates, the conduit and the hops are a person's.
+        # A session out of an external (supplier, MSP, outside) zone is remote access by definition; a stray
+        # unidentified UDP or ICMP packet is not, and the evidence says so.
+        external = src.zone_type == ZoneTypeChoices.EXTERNAL
+        evidence = fp.evidence
+        if external and not fp.session and not flow.remote_access and not fp.remote_access:
+            evidence += ('\nNot marked as remote access: from an external zone, but only unidentified UDP/ICMP '
+                         'traffic or a port scan. Set it by hand if someone works through this path.')
         new = {
             'port_mappings': _merge(flow.port_mappings, fp.port_mappings),
             'access': _merge(flow.access, fp.access, order=list(CLASSES)),
             'topics': _merge(flow.topics, fp.topics),
-            # A flow out of an external (supplier, MSP, outside) zone is remote access by definition
-            'remote_access': flow.remote_access or fp.remote_access or src.zone_type == ZoneTypeChoices.EXTERNAL,
+            'remote_access': flow.remote_access or fp.remote_access or (external and fp.session),
             'first_seen': _widest(min, flow.first_seen, fp.first_seen),
             'last_seen': _widest(max, flow.last_seen, fp.last_seen),
-            'evidence': fp.evidence,
+            'evidence': evidence,
         }
         if flow.conduit_id is None:
             candidates = Conduit.objects.filter(zones=src).filter(zones=dst)
@@ -1059,6 +1098,7 @@ def apply_plan(plan, site, vrf=None, log=print, move=False):
         service.full_clean()
         service.save()
         stats['services created' if created else 'services updated'] += 1
+    resolver.report()
     return dict(stats)
 
 

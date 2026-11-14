@@ -3,13 +3,12 @@ The access map: every flow into a zone at Purdue level <= N (default 2), i.e. ev
 its "allowed?" verdict. Not allowed first, then allowed-but-expired, unknown, and allowed. The diagram that goes
 with it is in accessdiagram.py.
 """
-import datetime
 
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from . import exposure
+from . import exposure, staleness
 from .accessdiagram import access_map_diagram, access_map_svg  # noqa: F401 (imported from here)
 from .choices import ConnectionChoices, FlowAllowedChoices, PurdueLevelChoices
 from .models import Flow, Zone, stale_after_days
@@ -74,13 +73,12 @@ def attention(queryset):
     connect, a broker), which a firewall rule on inbound traffic into that zone does not stop.
     """
     today = timezone.localdate()
-    stale_before = timezone.now() - datetime.timedelta(days=stale_after_days())
     return {
         'undecided_into_control': queryset.filter(exposure.undecided_into_control()).count(),
         'outside_into_control': queryset.filter(exposure.outside_into_control()).count(),
         'expired': queryset.filter(allowed=FlowAllowedChoices.YES, expires__lt=today).count(),
         'review_due': queryset.filter(review_by__lte=today).count(),
-        'stale': queryset.filter(last_seen__lt=stale_before).count(),
+        'stale': staleness.filter_stale(queryset).count(),
         'no_conduit': queryset.filter(conduit__isnull=True).count(),
         'outbound_only': queryset.filter(connection__in=ConnectionChoices.OUTBOUND_ONLY).count(),
         'stale_after_days': stale_after_days(),

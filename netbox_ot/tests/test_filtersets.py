@@ -118,7 +118,7 @@ class FlowFilterSetTest(TestCase, ChangeLoggedFilterSetTestMixin):
         cls.fw = create_test_device('fw-1', site=cls.site)
         Flow.objects.create(name='Flow 1', source_zone=cls.zones[0], destination_zone=cls.zones[1], allowed='no',
                             conduit=cls.conduit, protocol='s7comm', port_mappings=['tcp/102'],
-                            access=['read', 'write'], decided_by=cls.contact)
+                            access=['read', 'write'], decided_by=cls.contact, last_seen=timezone.now())
         f2 = Flow.objects.create(name='Flow 2', source_zone=cls.zones[2], destination_zone=cls.zones[1],
                                  remote_access=True, protocol='rdp', port_mappings=['tcp/3389'],
                                  last_seen=timezone.now() - datetime.timedelta(days=400))
