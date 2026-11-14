@@ -185,6 +185,9 @@ class IndustrialServiceTable(PrimaryModelTable):
 
 class RiskAssessmentTable(PrimaryModelTable):
     id = tables.Column(verbose_name=_('ID'), linkify=True)
+    # The first column opens the assessment itself ("Detailed 2026-11-14"); the zone or conduit has its own column
+    assessment = tables.Column(verbose_name=_('Assessment'), accessor=tables.A('pk'), linkify=True,
+                               order_by=('assessed_on', 'pk'))
     subject = tables.Column(verbose_name=_('Zone / conduit'), linkify=True, order_by=('zone__name', 'conduit__name'))
     kind = columns.ChoiceFieldColumn(verbose_name=_('Kind'))
     status = columns.ChoiceFieldColumn(verbose_name=_('Status'))
@@ -203,17 +206,21 @@ class RiskAssessmentTable(PrimaryModelTable):
     def render_current_step(self, value):
         return value or '✓'
 
+    def render_assessment(self, record):
+        return f'{record.get_kind_display().split(" (")[0]} {record.assessed_on}'
+
     class Meta(PrimaryModelTable.Meta):
         model = RiskAssessment
         fields = (
-            'pk', 'id', 'subject', 'kind', 'status', 'assessed_on', 'assessed_by', 'approved_by', 'approved_on',
+            'pk', 'id', 'assessment', 'subject', 'kind', 'status', 'assessed_on', 'assessed_by', 'approved_by',
+            'approved_on',
             'next_review', 'method', 'unmitigated_risk', 'residual_risk', 'tolerable_risk', 'current_step',
             'unmitigated_likelihood', 'unmitigated_impact', 'residual_likelihood', 'residual_impact', 'document',
             'description',
             'comments', 'tags', 'created', 'last_updated',
         )
         default_columns = (
-            'pk', 'subject', 'kind', 'status', 'assessed_on', 'approved_by', 'unmitigated_risk', 'residual_risk',
+            'pk', 'assessment', 'subject', 'status', 'approved_by', 'unmitigated_risk', 'residual_risk',
             'tolerable_risk', 'current_step', 'next_review',
         )
 
@@ -251,7 +258,7 @@ class RequirementStatusTable(PrimaryModelTable):
     security_level = tables.Column(
         verbose_name=_('Applies from SL'), accessor=tables.A('requirement__security_level'),
     )
-    status = columns.ChoiceFieldColumn(verbose_name=_('Status'))
+    status = columns.ChoiceFieldColumn(verbose_name=_('Status'), linkify=True)
     risk_assessment = tables.Column(verbose_name=_('Risk assessment'), linkify=True)
     assessed_by = tables.Column(verbose_name=_('Assessed by'), linkify=True)
     assessed_on = columns.DateColumn(verbose_name=_('Assessed on'))

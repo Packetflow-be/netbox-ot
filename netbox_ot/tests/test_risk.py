@@ -7,11 +7,11 @@ from django.urls import reverse
 
 from dcim.models import Site
 from tenancy.models import Contact
-from utilities.testing import TestCase
+from utilities.testing import TestCase, create_test_device
 
 from netbox_ot import risk
 from netbox_ot.forms import RiskAssessmentForm
-from netbox_ot.models import RiskAssessment, Zone
+from netbox_ot.models import Conduit, Flow, RiskAssessment, Zone
 
 TODAY = datetime.date(2026, 6, 1)
 THREE = {
@@ -183,3 +183,92 @@ class RiskPagesTest(RiskTestBase):
         })
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.save().unmitigated_risk, 'critical')
+
+
+class RiskScopeTest(RiskTestBase):
+    """The assessment page shows what is at risk (#46) and a button for the step it is at."""
+    user_permissions = (
+        'netbox_ot.view_riskassessment', 'netbox_ot.add_riskassessment', 'netbox_ot.change_riskassessment',
+        'netbox_ot.view_zone', 'netbox_ot.view_conduit', 'netbox_ot.view_flow', 'dcim.view_device',
+        'virtualization.view_virtualmachine',
+    )
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.supplier = Zone.objects.create(name='Supplier', slug='supplier', site=cls.site, zone_type='external')
+        cls.plc = create_test_device('plc-1', site=cls.site)
+        cls.zone.devices.add(cls.plc)
+        cls.conduit = Conduit.objects.create(name='Supplier - Cell', site=cls.site)
+        cls.conduit.zones.set([cls.supplier, cls.zone])
+        # Remote maintenance by the supplier, writes to the PLC, nobody decided on it yet
+        cls.remote = Flow.objects.create(name='supplier vpn', source_zone=cls.supplier, destination_zone=cls.zone,
+                                         remote_access=True, access=['write'], conduit=cls.conduit)
+
+    @override_settings(EXEMPT_VIEW_PERMISSIONS=[])
+    def test_zone_assessment_shows_what_is_at_risk(self):
+        a = self.assessment(kind='detailed', unmitigated_risk='high', tolerable_risk='medium')
+        a.save()
+        response = self.client.get(a.get_absolute_url())
+        self.assertHttpStatus(response, 200)
+        self.assertContains(response, 'in scope (now)')
+        self.assertContains(response, 'supplier vpn')
+        self.assertContains(response, 'remote access')
+        self.assertContains(response, 'changes the controllers')
+        self.assertContains(response, 'plc-1')
+        # The undecided remote write into a control zone is an open finding of this zone
+        self.assertContains(response, 'Open findings')
+        self.assertNotContains(response, 'The checks find nothing here.')
+        self.assertContains(response, f'destination_zone_id={self.zone.pk}')
+        # Assessed on 2026-06-01, the flow and the PLC were made later: new since the assessment
+        self.assertContains(response, 'new since this assessment')
+
+    @override_settings(EXEMPT_VIEW_PERMISSIONS=[])
+    def test_conduit_assessment_shows_its_flows(self):
+        a = RiskAssessment(conduit=self.conduit, assessed_on=TODAY, kind='detailed')
+        a.save()
+        response = self.client.get(a.get_absolute_url())
+        self.assertHttpStatus(response, 200)
+        self.assertContains(response, 'Flows through this conduit')
+        self.assertContains(response, 'supplier vpn')
+        self.assertContains(response, 'nothing documented')  # no enforcing device
+        self.assertContains(response, f'conduit_id={self.conduit.pk}')
+
+    @override_settings(EXEMPT_VIEW_PERMISSIONS=[])
+    def test_each_step_has_a_button(self):
+        a = self.assessment(kind='detailed', unmitigated_risk='high', tolerable_risk='medium')
+        a.save()
+        edit = reverse('plugins:netbox_ot:riskassessment_edit', kwargs={'pk': a.pk})
+        response = self.client.get(a.get_absolute_url())
+        self.assertContains(response, 'Fill in: threats')
+        self.assertContains(response, f'{edit}?return_url=')
+        self.assertContains(response, '#id_threats')
+        # Residual above tolerable: treat it further
+        a.threats, a.countermeasures, a.residual_risk = 't', 'vpn on demand', 'high'
+        a.save()
+        response = self.client.get(a.get_absolute_url())
+        self.assertContains(response, 'Add countermeasures')
+        self.assertContains(response, 'Update the residual risk')
+        # Ready for approval: the form opens with the status and today's date filled in
+        a.residual_risk = 'medium'
+        a.save()
+        response = self.client.get(a.get_absolute_url())
+        self.assertContains(response, 'status=approved&amp;approved_on=')
+        self.assertContains(response, '#id_approved_by')
+
+    @override_settings(EXEMPT_VIEW_PERMISSIONS=[])
+    def test_no_buttons_without_change_permission(self):
+        self.remove_permissions('netbox_ot.change_riskassessment')
+        a = self.assessment(kind='detailed', unmitigated_risk='high', tolerable_risk='medium')
+        a.save()
+        response = self.client.get(a.get_absolute_url())
+        self.assertHttpStatus(response, 200)
+        self.assertNotContains(response, 'Fill in:')
+
+    @override_settings(EXEMPT_VIEW_PERMISSIONS=[])
+    def test_list_opens_the_assessment_from_the_first_column(self):
+        a = self.assessment(kind='initial', unmitigated_risk='high', tolerable_risk='medium')
+        a.save()
+        response = self.client.get(reverse('plugins:netbox_ot:riskassessment_list'))
+        self.assertHttpStatus(response, 200)
+        self.assertContains(response, f'<a href="{a.get_absolute_url()}">Initial {TODAY}</a>')

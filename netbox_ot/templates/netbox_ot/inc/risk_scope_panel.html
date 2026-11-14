@@ -1,0 +1,166 @@
+{% extends 'ui/panels/_base.html' %}
+{% load i18n %}
+{% block panel_content %}
+  {% with s=scope.summary %}
+  <div class="card-body pb-2">
+    <p class="small text-muted mb-2">
+      {% blocktrans %}What this assessment is about, read from the model as it is now. Rows marked <span class="badge text-bg-purple">new</span> appeared after the assessment date: check whether the assessment still holds.{% endblocktrans %}
+    </p>
+    <div class="d-flex flex-wrap gap-2 ot-scope-summary">
+      {% if scope.kind == 'zone' %}
+        <span class="badge text-bg-secondary">{% blocktrans count n=s.assets %}{{ n }} asset{% plural %}{{ n }} assets{% endblocktrans %}</span>
+        {% if s.end_of_support %}<span class="badge text-bg-red">{% blocktrans count n=s.end_of_support %}{{ n }} past end of support{% plural %}{{ n }} past end of support{% endblocktrans %}</span>{% endif %}
+        <span class="badge text-bg-secondary">{% blocktrans count n=s.flows %}{{ n }} way in{% plural %}{{ n }} ways in{% endblocktrans %}</span>
+      {% else %}
+        <span class="badge text-bg-secondary">{% blocktrans count n=s.flows %}{{ n }} flow carried{% plural %}{{ n }} flows carried{% endblocktrans %}</span>
+      {% endif %}
+      {% if s.remote %}<span class="badge text-bg-red">{% blocktrans count n=s.remote %}{{ n }} remote access{% plural %}{{ n }} remote access{% endblocktrans %}</span>{% endif %}
+      {% if s.changes %}<span class="badge text-bg-orange">{% blocktrans count n=s.changes %}{{ n }} with write, control or program access{% plural %}{{ n }} with write, control or program access{% endblocktrans %}</span>{% endif %}
+      {% if s.outside %}<span class="badge text-bg-orange">{% blocktrans count n=s.outside %}{{ n }} from outside{% plural %}{{ n }} from outside{% endblocktrans %}</span>{% endif %}
+      {% if s.undecided %}<span class="badge text-bg-yellow">{% blocktrans count n=s.undecided %}{{ n }} not decided{% plural %}{{ n }} not decided{% endblocktrans %}</span>{% endif %}
+      {% if s.error %}<span class="badge text-bg-red">{% blocktrans count n=s.error %}{{ n }} error{% plural %}{{ n }} errors{% endblocktrans %}</span>{% endif %}
+      {% if s.warning %}<span class="badge text-bg-orange">{% blocktrans count n=s.warning %}{{ n }} warning{% plural %}{{ n }} warnings{% endblocktrans %}</span>{% endif %}
+      {% if s.new %}<span class="badge text-bg-purple">{% blocktrans count n=s.new %}{{ n }} new since this assessment{% plural %}{{ n }} new since this assessment{% endblocktrans %}</span>{% endif %}
+    </div>
+    <div class="small mt-2">
+      {% if scope.sl_target or scope.sl_achieved or scope.capability %}
+        SL-T {{ scope.sl_target|default:"—" }} · SL-A {{ scope.sl_achieved|default:"—" }}
+        {% if scope.sl_gap %}<span class="text-danger">· {% trans "gap in" %} {{ scope.sl_gap|join:", " }}</span>{% endif %}
+        {% if scope.kind == 'zone' %}
+          · {% trans "lowest SL-C of its devices" %} {{ scope.capability|default:"—" }}
+          {% if scope.capability_gap %}<span class="text-danger">({% trans "below SL-T in" %} {{ scope.capability_gap|join:", " }})</span>{% endif %}
+        {% endif %}
+      {% else %}
+        <span class="text-muted">{% if scope.kind == 'zone' %}{% trans "No security levels yet: the zone has no SL-T or SL-A, and its devices no SL-C." %}{% else %}{% trans "No security levels yet: the conduit has no SL-T or SL-A." %}{% endif %}</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endwith %}
+  <style>
+    .ot-scope-heading { font-size: .95rem; font-weight: 600; margin: 0; padding: 1rem 1rem .4rem;
+      border-top: 1px solid var(--tblr-border-color, rgba(128, 128, 128, .2)); }
+  </style>
+
+  {% if scope.kind == 'conduit' %}
+    <div class="card-body pt-0 pb-2 small">
+      <strong>{% trans "Joins" %}:</strong>
+      {% for zone in scope.zones %}{{ zone|linkify }}{% if zone.purdue_level %} {% badge zone.purdue_level bg_color=zone.get_purdue_level_color %}{% endif %}{% if not forloop.last %}, {% endif %}{% empty %}{{ ''|placeholder }}{% endfor %}
+      <br>
+      <strong>{% trans "Enforced by" %}:</strong>
+      {% for e in scope.enforcing %}{{ e|linkify }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-danger">{% trans "nothing documented" %}</span>{% endfor %}
+    </div>
+  {% endif %}
+
+  <h3 class="ot-scope-heading">{% if scope.kind == 'zone' %}{% trans "Ways in" %}{% else %}{% trans "Flows through this conduit" %}{% endif %}</h3>
+  {% if scope.flow_rows %}
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead>
+          <tr>
+            <th>{% trans "Flow" %}</th>
+            <th>{% trans "From" %}</th>
+            {% if scope.kind == 'conduit' %}<th>{% trans "To" %}</th>{% endif %}
+            <th>{% trans "Service" %}</th>
+            <th>{% trans "Access" %}</th>
+            <th>{% trans "Why it matters" %}</th>
+            <th>{% trans "Allowed" %}</th>
+            <th>{% trans "Expires" %}</th>
+            {% if scope.kind == 'zone' %}<th>{% trans "Conduit" %}</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in scope.flow_rows %}
+            {% with f=row.flow %}
+            <tr>
+              <td>{{ f|linkify }}{% if row.new %} <span class="badge text-bg-purple">{% trans "new" %}</span>{% endif %}</td>
+              <td>{{ f.source_zone|linkify }}</td>
+              {% if scope.kind == 'conduit' %}<td>{{ f.destination_zone|linkify }}</td>{% endif %}
+              <td class="text-nowrap">{{ f.get_protocol_display }} {{ f.ports_short }}</td>
+              <td>{% for value, label, color in f.get_access_display %}{% badge label bg_color=color %} {% empty %}{{ ''|placeholder }}{% endfor %}</td>
+              <td>
+                {% if f.remote_access %}<span class="badge text-bg-red">{% trans "remote access" %}</span>{% endif %}
+                {% if row.outside %}<span class="badge text-bg-orange">{% trans "from outside" %}</span>{% endif %}
+                {% if row.changes and row.into_control %}<span class="badge text-bg-orange">{% trans "changes the controllers" %}</span>{% endif %}
+              </td>
+              <td>{% badge f.get_allowed_display bg_color=f.get_allowed_color %}</td>
+              <td class="text-nowrap">{% if f.expires %}{{ f.expires|date:"Y-m-d" }}{% elif f.remote_access and f.allowed == 'yes' %}<span class="text-danger">{% trans "none" %}</span>{% else %}{{ ''|placeholder }}{% endif %}</td>
+              {% if scope.kind == 'zone' %}<td>{{ f.conduit|linkify|placeholder }}</td>{% endif %}
+            </tr>
+            {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card-body pt-0 text-muted small">{% trans "No flows recorded." %}</div>
+  {% endif %}
+  <div class="card-body pt-1 pb-2 small">
+    <a href="{{ flow_list_url }}?{{ scope.flows_url_param }}">{% if scope.flows_more %}{% blocktrans with n=scope.flows_more %}All flows ({{ n }} more){% endblocktrans %}{% else %}{% trans "All flows" %}{% endif %}</a>
+    {% if scope.kind == 'zone' and scope.ways_out %}· <span class="text-muted">{% blocktrans count n=scope.ways_out %}and {{ n }} flow out of the zone{% plural %}and {{ n }} flows out of the zone{% endblocktrans %}</span>{% endif %}
+  </div>
+
+  {% if scope.kind == 'zone' %}
+    <h3 class="ot-scope-heading">{% trans "Assets" %}</h3>
+    {% if scope.asset_rows %}
+      <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0">
+          <thead>
+            <tr>
+              <th>{% trans "Asset" %}</th>
+              <th>{% trans "Role" %}</th>
+              <th>{% trans "Purdue level" %}</th>
+              <th>SL-C</th>
+              <th>{% trans "End of support" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in scope.asset_rows %}
+              <tr>
+                <td>{{ row.asset|linkify }}{% if row.new %} <span class="badge text-bg-purple">{% trans "new" %}</span>{% endif %}</td>
+                <td>{{ row.role|placeholder }}</td>
+                <td>{% if row.level %}{% badge row.level_label bg_color=row.level_color %}{% else %}{{ ''|placeholder }}{% endif %}</td>
+                <td>{{ row.capability|placeholder }}</td>
+                <td>{% if row.end_of_support %}{% badge row.end_of_support.date|date:"Y-m-d" bg_color=row.end_of_support.color %}{% else %}{{ ''|placeholder }}{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if scope.assets_more %}
+        <div class="card-body pt-1 pb-2 small"><a href="{{ subject.get_absolute_url }}">{% blocktrans with n=scope.assets_more %}All assets on the zone ({{ n }} more){% endblocktrans %}</a></div>
+      {% endif %}
+    {% else %}
+      <div class="card-body pt-0 text-muted small">{% trans "No devices or virtual machines in this zone." %}</div>
+    {% endif %}
+  {% endif %}
+
+  <h3 class="ot-scope-heading">{% trans "Open findings" %}</h3>
+  {% if scope.finding_groups %}
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <tbody>
+          {% for g in scope.finding_groups %}
+            <tr>
+              <td class="text-nowrap" style="width: 1%">{% badge g.severity bg_color=g.color %}</td>
+              {% if g.count == 1 %}
+                <td>{% with f=g.findings.0 %}{{ f.message }} <span class="text-muted small">({{ f.obj|linkify }})</span>{% endwith %}</td>
+              {% else %}
+                <td>
+                  <strong>{{ g.title }}</strong> <span class="badge text-bg-secondary">{{ g.count }}</span>
+                  <div class="small">
+                    {% for f in g.shown %}{{ f.obj|linkify }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if g.more %}, {% blocktrans with n=g.more %}and {{ n }} more{% endblocktrans %}{% endif %}
+                  </div>
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card-body pt-0 text-muted small">{% trans "The checks find nothing here." %}</div>
+  {% endif %}
+  <div class="card-body pt-1 small">
+    <a href="{{ checks_url }}{% if subject.site_id %}?site_id={{ subject.site_id }}{% endif %}">{% trans "All checks for the site" %}</a>
+  </div>
+{% endblock %}
