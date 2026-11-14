@@ -20,8 +20,37 @@ The first panel lists the steps of an assessment and marks the one this assessme
 | Residual risk within tolerable? | The residual risk is recorded and not above the tolerable risk. If it is above, the step asks for a decision: more countermeasures, or an explicit acceptance |
 | Approval | Status *Approved* with a date and who approved it |
 
-Under the step it is at, it says what is still missing. The list of risk assessments has a *Step* column with the same
-step, so you can see which assessments are waiting for what; the API has it as the read-only `current_step`.
+Under the step it is at, it says what is still missing, with a button to move on:
+
+| The assessment is at | Button |
+|---|---|
+| A step with something missing | *Fill in: ...* opens the edit form at the first missing field |
+| Detailed assessment, on an initial one | *Start the detailed assessment*: a new detailed assessment of the same zone or conduit, with the tolerable risk, method and the initial likelihood and impact filled in |
+| Residual risk above tolerable | *Add countermeasures* or *Update the residual risk* |
+| Approval | *Approve* opens the form with status *Approved* and today's date filled in; you add who approved it and the next review |
+
+The buttons need the permission to change (or, for a new detailed assessment, to add) risk assessments.
+
+The list of risk assessments has a *Step* column with the same step, so you can see which assessments are waiting
+for what; the API has it as the read-only `current_step`. The first column of the list opens the assessment.
+
+## What's in scope (now)
+
+At the bottom of an assessment, a panel shows what it is about, read from the model as it is now:
+
+- **Ways in** (a zone) or **flows through this conduit** (a conduit): the flows, most exposed first, with the
+  service, the access (read, write, control, program), why they matter (*remote access*, *from outside*, *changes
+  the controllers*), the verdict, the expiry date and the conduit. For a remote maintenance path, this is where
+  you see how it comes in and what it can do.
+- **Assets** of the zone: devices and virtual machines with their role, Purdue level, SL-C and end of support
+  (with netbox-lifecycle), the most critical level first.
+- **Security levels**: SL-T, SL-A, the gap between them, and the lowest SL-C of the zone's devices.
+- **Open findings**: what the [checks](checks-and-register.md) find on the zone or conduit, its assets, its flows
+  and its assessments, one row per check.
+
+Rows created after the assessment date are marked **new**: the assessment was made without them, so check whether
+it still holds. The panel shows the first 15 flows and assets, with a link to the full lists. It only reads; the
+risk levels stay what the assessor recorded.
 
 The step names are the plugin's own words. The plugin does not ship the text of the standard.
 

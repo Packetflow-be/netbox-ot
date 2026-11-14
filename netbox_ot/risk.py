@@ -140,24 +140,28 @@ def steps(assessment, others=()):
     known = bool(a.unmitigated_risk and a.tolerable_risk)
     result = []
 
-    def step(key, title, done, missing=(), note='', skipped=False, attention=False):
+    def step(key, title, done, missing=(), note='', skipped=False, attention=False, field='', link=None):
+        # field: the form field to fill in next for this step (the panel's button opens the form there);
+        # link: another assessment this step points at (the initial or the detailed one)
         result.append({
             'key': key, 'title': title, 'note': note, 'missing': [m for m in missing if m],
             'state': 'skipped' if skipped else 'attention' if attention else 'done' if done else 'todo',
+            'field': field, 'link': link,
         })
 
     # 1. Initial assessment (ZCR 2): the worst case, without countermeasures
     if initial:
         step('initial', _('Initial assessment (ZCR 2)'), bool(a.unmitigated_risk),
-             [not a.unmitigated_risk and _('the unmitigated (worst case) risk')])
+             [not a.unmitigated_risk and _('the unmitigated (worst case) risk')], field='unmitigated_likelihood')
     else:
         step('initial', _('Initial assessment (ZCR 2)'), bool(earlier or a.unmitigated_risk),
              [not (earlier or a.unmitigated_risk) and _('an initial assessment, or the unmitigated risk here')],
-             note=_('Recorded as {assessment}').format(assessment=earlier) if earlier else '')
+             note=_('Recorded as') if earlier else '', link=earlier, field='unmitigated_likelihood')
     # 2. Does the unmitigated risk exceed the tolerable risk?
     step('compare', _('Above tolerable risk?'), known,
          [not a.tolerable_risk and _('the tolerable risk'),
           not a.unmitigated_risk and _('the unmitigated risk')],
+         field='tolerable_risk' if not a.tolerable_risk else 'unmitigated_likelihood',
          note=(_('Yes: a detailed assessment is needed') if exceeds else _('No: the zone can be accepted as it is'))
          if known else '')
     stop = known and not exceeds   # nothing to treat: straight to approval
@@ -165,28 +169,31 @@ def steps(assessment, others=()):
     if initial:
         step('detailed', _('Detailed assessment (ZCR 5)'), bool(later),
              [not later and _('a detailed assessment of this zone or conduit')], skipped=stop,
-             note=_('Recorded as {assessment}').format(assessment=later) if later else '')
+             note=_('Recorded as') if later else '', link=later)
     else:
         missing = [not a.threats and _('threats'), not a.vulnerabilities and _('vulnerabilities'),
                    not a.consequences and _('consequences'),
                    not (a.unmitigated_likelihood and a.unmitigated_impact) and _('likelihood and impact (unmitigated)')]
         # Threats make it a detailed assessment; the rest is asked for without holding the next steps back
-        step('detailed', _('Detailed assessment (ZCR 5)'), bool(a.threats), missing, skipped=stop)
+        step('detailed', _('Detailed assessment (ZCR 5)'), bool(a.threats), missing, skipped=stop, field='threats')
     # 4. Countermeasures
     step('countermeasures', _('Countermeasures'), bool(a.countermeasures),
-         [not a.countermeasures and _('the countermeasures')], skipped=stop or initial and not a.countermeasures)
+         [not a.countermeasures and _('the countermeasures')], skipped=stop or initial and not a.countermeasures,
+         field='countermeasures')
     # 5. Residual risk against tolerable risk
     over = a.residual_above_tolerable
     step('residual', _('Residual risk within tolerable?'), bool(a.residual_risk) and not over,
          [not a.residual_risk and _('the residual risk'),
           over and _('more countermeasures, or an explicit acceptance of the residual risk')],
          skipped=stop or initial and not a.residual_risk, attention=over,
+         field='countermeasures' if over else 'residual_likelihood',
          note=_('No: residual risk is above tolerable') if over else _('Yes') if a.residual_risk else '')
     # 6. Approval by the asset owner
     approved = a.status == RiskAssessmentStatusChoices.APPROVED
     step('approval', _('Approval'), approved and bool(a.approved_by_id),
          [not approved and _('approval (status Approved, with a date)'),
-          not a.approved_by_id and _('who approved it'), not a.next_review and _('a next review date')])
+          not a.approved_by_id and _('who approved it'), not a.next_review and _('a next review date')],
+         field='status')
     # The step it is at: the first that is not done; a step needing attention stays as it is
     for item in result:
         if item['state'] == 'attention':

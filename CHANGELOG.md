@@ -3,6 +3,26 @@
 Each release opens with what kind of release it is. Breaking changes are listed under **Breaking Changes**.
 Numbers link to the issue or pull request on GitHub; entries without a number predate the public repository.
 
+## Unreleased
+
+### Enhancements
+
+- **A risk assessment shows what is at risk**
+  ([#46](https://github.com/Packetflow-be/netbox-ot/issues/46)). A new panel on the assessment, *What's in
+  scope (now)*, lists the ways into its zone (or the flows of its conduit) with the most exposed first (remote
+  access, write/control/program access, from outside, the verdict and expiry), the zone's assets with their
+  Purdue level, SL-C and end of support, the SL-T/SL-A gap, and the open check findings for the zone or
+  conduit and what is in it, grouped per check. Anything created after the assessment date is marked *new*, so
+  a reviewer sees what changed since. It is read live and never sets a risk level.
+- **Each step of an assessment has a button.** The step an assessment is at now offers the way forward: fill in
+  what is missing (the form opens at that field), start the detailed assessment from an initial one (zone,
+  tolerable risk, method and the initial likelihood and impact filled in), add countermeasures or update the
+  residual risk when it is above tolerable, and approve (status and today's date filled in). "Recorded as" links
+  to the other assessment.
+- **Lists open the assessment from the first column.** The risk assessment list and the panels on zones and
+  conduits start with an *Assessment* column ("Detailed 2026-10-01") that opens it; the zone or conduit keeps its
+  own column. The status badge in the requirement status list opens that status.
+
 ## 0.5.1 (2026-11-14)
 
 Patch release with the fixes and usability changes from the second field review

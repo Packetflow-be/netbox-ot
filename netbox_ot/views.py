@@ -2,6 +2,9 @@ from django.contrib import messages
 from django.db.models import Count, Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.http import urlencode
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import View
 
@@ -11,11 +14,11 @@ from netbox.ui import actions, attrs, layout, panels
 from netbox.views import generic
 from utilities.views import ContentTypePermissionRequiredMixin, ViewTab, register_model_view
 
-from . import filtersets, forms, risk, sl, tables
+from . import filtersets, forms, risk, risk_scope, sl, tables
 from .accessmap import access_map_diagram, access_map_flows, accessmap_labels, attention
 from .branching import branch_names, branching_installed
 from .checks import CHECKS, run_checks, summary
-from .choices import ConnectionChoices
+from .choices import ConnectionChoices, RiskAssessmentKindChoices, RiskAssessmentStatusChoices
 from .customfields import get_sl_capability
 from .models import (
     Conduit,
@@ -123,15 +126,72 @@ class RiskStepsPanel(panels.Panel):
 
     def get_context(self, context):
         obj = context['object']
+        user = context['request'].user
         field = 'zone' if obj.zone_id else 'conduit'
-        others = RiskAssessment.objects.restrict(context['request'].user, 'view').filter(
+        others = RiskAssessment.objects.restrict(user, 'view').filter(
             **{field: getattr(obj, field)}).exclude(pk=obj.pk)
         steps = risk.steps(obj, list(others))
+        can_change = user.has_perm('netbox_ot.change_riskassessment', obj)
+        can_add = user.has_perm('netbox_ot.add_riskassessment')
+        for step in steps:
+            step['actions'] = self.step_actions(obj, field, step, can_change, can_add) \
+                if step['state'] in ('current', 'attention') else []
         return {
             **super().get_context(context),
             'steps': steps,
             'missing': [(s['title'], s['missing']) for s in steps if s['missing'] and s['state'] != 'skipped'],
-            'add_detailed': f'{field}={getattr(obj, field + "_id")}&kind=detailed&tolerable_risk={obj.tolerable_risk}',
+        }
+
+    @staticmethod
+    def step_actions(obj, field, step, can_change, can_add):
+        """The buttons that move this assessment past the step it is at: (label, url, icon)."""
+        back = urlencode({'return_url': obj.get_absolute_url()})
+        edit = reverse('plugins:netbox_ot:riskassessment_edit', kwargs={'pk': obj.pk})
+
+        def fill(label, form_field, **initial):
+            query = urlencode(initial) + '&' if initial else ''
+            return label, f'{edit}?{query}{back}#id_{form_field}', 'mdi-pencil'
+
+        if step['key'] == 'detailed' and obj.kind == RiskAssessmentKindChoices.INITIAL:
+            if not can_add:
+                return []
+            initial = {field: getattr(obj, f'{field}_id'), 'kind': RiskAssessmentKindChoices.DETAILED,
+                       'tolerable_risk': obj.tolerable_risk, 'method': obj.method,
+                       'unmitigated_likelihood': obj.unmitigated_likelihood or '',
+                       'unmitigated_impact': obj.unmitigated_impact or ''}
+            url = reverse('plugins:netbox_ot:riskassessment_add') + '?' + urlencode(
+                {k: v for k, v in initial.items() if v not in (None, '')})
+            return [(_('Start the detailed assessment'), url, 'mdi-plus-thick')]
+        if not can_change:
+            return []
+        if step['key'] == 'approval':
+            if obj.status != RiskAssessmentStatusChoices.APPROVED:
+                return [fill(_('Approve'), 'approved_by', status=RiskAssessmentStatusChoices.APPROVED,
+                             approved_on=timezone.localdate().isoformat())]
+            return [fill(_('Record who approved it and the next review'), 'approved_by')]
+        if step['state'] == 'attention':
+            # Residual above tolerable: treat it further (an explicit acceptance is not modelled yet, #46)
+            return [fill(_('Add countermeasures'), 'countermeasures'),
+                    fill(_('Update the residual risk'), 'residual_likelihood')]
+        if step['field']:
+            return [fill(_('Fill in: {what}').format(what=', '.join(str(m) for m in step['missing'])),
+                         step['field'])]
+        return []
+
+
+class RiskScopePanel(panels.Panel):
+    """What the assessment is about, as it is now: the assets, the ways in and the open findings of its subject."""
+    template_name = 'netbox_ot/inc/risk_scope_panel.html'
+    title = _("What's in scope (now)")
+
+    def get_context(self, context):
+        obj = context['object']
+        return {
+            **super().get_context(context),
+            'scope': risk_scope.assessment_scope(obj, context['request'].user),
+            'flow_list_url': reverse('plugins:netbox_ot:flow_list'),
+            'checks_url': reverse('plugins:netbox_ot:checks'),
+            'subject': obj.subject,
         }
 
 
@@ -545,6 +605,9 @@ class RiskAssessmentView(generic.ObjectView):
             panels.TextCodePanel('countermeasures', title=_('Countermeasures')),
             CustomFieldsPanel(),
             panels.CommentsPanel(),
+        ],
+        bottom_panels=[
+            RiskScopePanel(),
         ],
     )
 
