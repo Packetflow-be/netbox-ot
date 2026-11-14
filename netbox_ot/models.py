@@ -1,4 +1,3 @@
-import datetime
 import re
 
 from django.conf import settings
@@ -524,8 +523,12 @@ class Flow(PrimaryModel):
 
     @property
     def is_stale(self):
-        """Not seen for `stale_after_days` (plugin setting, default 90). Flows never observed are not stale."""
-        return bool(self.last_seen) and self.last_seen < timezone.now() - datetime.timedelta(days=stale_after_days())
+        """
+        Not seen for `stale_after_days` (plugin setting, default 90) before the latest observation at its site
+        (see staleness.py). Flows never observed are not stale.
+        """
+        from .staleness import is_stale
+        return is_stale(self)
 
     def get_allowed_color(self):
         return FlowAllowedChoices.colors.get(self.allowed)

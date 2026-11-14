@@ -48,7 +48,9 @@ It creates:
 
 Every import ends with the **observed hosts that match no device or VM** in NetBox at the site, hosts inside
 a zone first, and `--unknown-report FILE.csv` writes them all with what was seen of them: finding these is
-the point of passive discovery. Flows out of an external zone are marked as remote access.
+the point of passive discovery. Addresses that match no device or VM, or sit in no prefix, are listed once
+per run (the first eight and a count), not one line per host. Flows out of an external zone are marked as remote
+access, unless they carried only unidentified UDP or ICMP traffic or a port scan (the evidence says so).
 
 The importer never creates devices: a capture shows an address and what it talks, not what the machine is.
 `--unknown-import DIR` writes the unknown hosts inside a zone of the plant (not those in an external zone)

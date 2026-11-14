@@ -12,7 +12,9 @@ import like any other source. No database access here: zones come in as a ZoneMa
             (the "service" field: rdp, ssh, ssl, modbus, ...), or else "tcp/<port>" (not identified; no protocol
             is guessed from the port). TCP attempts that were never answered (S0, REJ, ...) are skipped, and so
             are answered TCP connections that carried no data (probes); one-way UDP counts. Answered TCP ports
-            become the responder's open ports.
+            become the responder's open ports. Connections on a port where the same two hosts have protocol-log
+            requests count under that protocol (COTP-only connections next to S7comm); a service Zeek guessed on
+            a small minority of a port's connections joins the unidentified rest (see _fold_conn_only).
   scans     a source that tried SCAN_PORTS or more TCP ports, at most SCAN_DATA_SHARE of them with data, is
             reported in the summary ("scans", per source and destination zone); what it reached with only
             conn.log to show for it becomes one request "port scan" per destination, without ports.
@@ -44,7 +46,9 @@ STREAMS = {
     'modbus_detailed': ('modbus', ('func',), ('request_response', ('REQUEST',))),
     'modbus_read_write_multiple_registers': ('modbus', ('func',), ('request_response', ('REQUEST',))),
     'modbus_mask_write_register': ('modbus', ('func',), ('request_response', ('REQUEST',))),
-    's7comm': ('s7comm', ('function_name', 'subfunction_name', 'rosctr_name'), ('is_orig', ('T', True))),
+    # A User-Data request names its group in function_name ("CPU Functions") and what it does in subfunction_name
+    # ("Read SZL"); a Job request has only function_name ("Read Variable")
+    's7comm': ('s7comm', ('subfunction_name', 'function_name', 'rosctr_name'), ('is_orig', ('T', True))),
     's7comm_plus': ('s7comm-plus', ('function_name', 'opcode_name'), ('is_orig', ('T', True))),
     'cip': ('cip', ('cip_service',), ('direction', ('request',))),
     'enip': ('enip', ('enip_command',), ('is_orig', ('T', True))),
@@ -64,6 +68,9 @@ UNSET = ('-', '(empty)', '', None)
 # A source that tried this many TCP ports, of which at most SCAN_DATA_SHARE carried data, is scanning
 SCAN_PORTS = 100
 SCAN_DATA_SHARE = 0.2
+# Zeek's payload guess on at most this share of a port's connections between two hosts, where the rest stays
+# unidentified, is not trusted (2 "http" among 100 Telnet connections on tcp/23)
+GUESS_SHARE = 0.1
 
 
 def _probe(record):
@@ -369,12 +376,14 @@ def to_observations(logs, zone_map, captures=None):
         proto = service or (f'{transport}/{port}' if port else transport or 'ip')
         from_conn.add(add(src, dst, proto, port, transport if transport in ('tcp', 'udp') else None, '', ts))
 
+    from_conn = _fold_conn_only(requests, from_conn)
+
     # A scanner's connections are reconnaissance, not plant traffic: what it reached with only conn.log to show for
     # it (nmap's version probes carry data too) becomes one request per destination without a port, so the flow
     # says the path exists without a wall of ports. Its protocol-log requests (S7 or Modbus reads) stay as they are.
     scans = _scans(tried, carried, zone_map)
     scanners = {scan['ip'] for scan in scans}
-    for key in from_conn:
+    for key in sorted(from_conn, key=str):  # a set: sorted, so every run builds the same flows
         if key[0] in scanners:
             entry = requests.pop(key)
             add(ipaddress.IPv4Address(key[0]), ipaddress.IPv4Address(key[1]), 'port scan', None, None, '',
@@ -427,6 +436,58 @@ def to_observations(logs, zone_map, captures=None):
         summary.update(start=start.isoformat(), end=end.isoformat(),
                        hours=round((end - start).total_seconds() / 3600, 1))
     return assets, flows, summary
+
+
+def _fold_conn_only(requests, from_conn):
+    """
+    Requests made from conn.log alone, folded where they would otherwise make a misleading flow; returns the new
+    set of conn-only keys. Two cases, per source, destination and port:
+
+    - the same pair has protocol-log requests on that port for one protocol: the other connections are that
+      protocol's too, without a request the parser logged (COTP connects and S7 acknowledgements to a PLC on
+      tcp/102), so they count under that protocol instead of becoming a second, unidentified flow;
+    - most connections stayed unidentified and Zeek's payload guess named a service on GUESS_SHARE or less of
+      them: the guess is not trusted (2 "smb" among 215 Telnet connections on tcp/23), they count as unidentified.
+    """
+    key_fields = ('src', 'dst', 'proto', 'port', 'transport', 'func', 'connection', 'broker', 'topic', 'access')
+    logged = defaultdict(set)  # (src, dst, port) -> protocols with protocol-log requests
+    for key in requests:
+        if key not in from_conn and key[3] and not key[6]:
+            logged[(key[0], key[1], key[3])].add(key[2])
+    groups = defaultdict(list)
+    for key in from_conn:
+        if key[3]:
+            groups[(key[0], key[1], key[3], key[4])].append(key)
+
+    def move(key, proto):
+        new = dict(zip(key_fields, key), proto=proto)
+        target = tuple(new[f] for f in key_fields)
+        if target == key:
+            return key
+        entry = requests.pop(key)
+        merged = requests[target]
+        merged['count'] += entry['count']
+        for t in (entry['first'], entry['last']):
+            if t:
+                merged['first'] = min(merged['first'], t) if merged['first'] else t
+                merged['last'] = max(merged['last'], t) if merged['last'] else t
+        return target
+
+    folded = set()
+    for (src, dst, port, transport), keys in groups.items():
+        protocols = logged.get((src, dst, port), set())
+        if len(protocols) == 1:
+            proto = next(iter(protocols))
+            for key in keys:
+                move(key, proto)  # now a protocol-log protocol's request without a function
+            continue
+        unidentified = f'{transport}/{port}' if transport else None
+        plain = sum(requests[k]['count'] for k in keys if k[2] == unidentified)
+        guessed = [k for k in keys if k[2] != unidentified]
+        if plain and guessed and sum(requests[k]['count'] for k in guessed) <= GUESS_SHARE * plain:
+            keys = [k for k in keys if k[2] == unidentified] + [move(k, unidentified) for k in guessed]
+        folded.update(keys)
+    return folded | {key for key in from_conn if not key[3]}
 
 
 def survey(logs, zone_map=None, top=4):
