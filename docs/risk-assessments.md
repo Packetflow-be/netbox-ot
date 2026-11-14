@@ -34,6 +34,30 @@ The buttons need the permission to change (or, for a new detailed assessment, to
 The list of risk assessments has a *Step* column with the same step, so you can see which assessments are waiting
 for what; the API has it as the read-only `current_step`. The first column of the list opens the assessment.
 
+## Threat scenarios
+
+A detailed assessment (ZCR 5) is built from threat scenarios: who or what (the **threat source**) comes in how
+(the **entry flow** or conduit), against what (the **target assets**), using which vulnerability, with which
+consequence. *Add a scenario* on the assessment starts one; the pickers only offer the flows, devices and
+requirement statuses of the assessment's zone or conduit. For remote maintenance, pick the supplier's flow into
+the zone as the entry flow: the scenario's *Way in* panel then shows how it comes in (from where, the service,
+read/write/program, remote access, the verdict and its expiry).
+
+Each scenario has its own likelihood and impact before and after countermeasures, placed on the same risk matrix
+against the assessment's tolerable risk. Its countermeasures can point at the IEC 62443-3-3 requirement statuses
+that carry them.
+
+- With scenarios, the detailed step counts as done, and lists the scenarios that have no unmitigated risk yet; the
+  countermeasures step is done when the assessment or one of its scenarios has countermeasures.
+- The assessment's *Risk* panel shows the **worst threat scenario** (unmitigated and residual). Record the
+  assessment's own levels at least that high: the check `risk-below-scenarios` (warning) reports an approved
+  assessment whose risk is lower than its worst scenario.
+- *OT > Risk and requirements > Risk scenarios* lists them all, with filters for threat source, entry flow,
+  target device, remote access and residual above tolerable.
+
+The free-text threats, vulnerabilities and consequences on the assessment stay: a small zone can do without
+scenarios.
+
 ## Outcome: SL-T and accepting a residual risk
 
 A detailed assessment ends in the **SL-T** of its zone or conduit (IEC 62443-3-2). Record it on the assessment

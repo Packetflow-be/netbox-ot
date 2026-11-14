@@ -13,6 +13,7 @@ from .filters import (
     IndustrialServiceFilter,
     RequirementStatusFilter,
     RiskAssessmentFilter,
+    RiskScenarioFilter,
     SystemRequirementFilter,
     ZoneFilter,
 )
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 
 __all__ = (
     'ConduitType', 'FieldbusType', 'FlowHopType', 'FlowType', 'IndustrialServiceType', 'RequirementStatusType',
-    'RiskAssessmentType', 'SystemRequirementType', 'ZoneType',
+    'RiskAssessmentType', 'RiskScenarioType', 'SystemRequirementType', 'ZoneType',
 )
 
 
@@ -115,6 +116,18 @@ class RiskAssessmentType(PrimaryObjectType):
     approved_by: Annotated['ContactType', strawberry.lazy('tenancy.graphql.types')] | None
     risk_accepted_by: Annotated['ContactType', strawberry.lazy('tenancy.graphql.types')] | None
     sl_target: list[int] | None
+    requirement_statuses: list[
+        Annotated['RequirementStatusType', strawberry.lazy('netbox_ot.graphql.types')]
+    ]
+    scenarios: list[Annotated['RiskScenarioType', strawberry.lazy('netbox_ot.graphql.types')]]
+
+
+@register_type(models.RiskScenario, fields='__all__', filters=RiskScenarioFilter, pagination=True)
+class RiskScenarioType(PrimaryObjectType):
+    assessment: Annotated['RiskAssessmentType', strawberry.lazy('netbox_ot.graphql.types')]
+    entry_flow: Annotated['FlowType', strawberry.lazy('netbox_ot.graphql.types')] | None
+    entry_conduit: Annotated['ConduitType', strawberry.lazy('netbox_ot.graphql.types')] | None
+    targets: list[Annotated['DeviceType', strawberry.lazy('dcim.graphql.types')]]
     requirement_statuses: list[
         Annotated['RequirementStatusType', strawberry.lazy('netbox_ot.graphql.types')]
     ]

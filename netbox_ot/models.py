@@ -28,12 +28,13 @@ from .choices import (
     RiskAssessmentStatusChoices,
     RiskLevelChoices,
     ServiceRoleChoices,
+    ThreatSourceChoices,
     ZoneTypeChoices,
 )
 
 __all__ = (
     'Conduit', 'Fieldbus', 'Flow', 'FlowHop', 'IndustrialService', 'PluginSettings', 'RequirementStatus',
-    'RiskAssessment', 'SystemRequirement', 'Zone',
+    'RiskAssessment', 'RiskScenario', 'SystemRequirement', 'Zone',
 )
 
 
@@ -944,6 +945,34 @@ class RiskAssessment(PrimaryModel):
     def sl_target_display(self):
         return sl.display(self.sl_target)
 
+    def scenario_levels(self):
+        """(worst unmitigated, worst residual) risk of the threat scenarios, or None without scenarios."""
+        scenarios = risk.assessment_scenarios(self)
+        if not scenarios:
+            return None
+        return (risk.worst(s.unmitigated_risk for s in scenarios), risk.worst(s.residual_risk for s in scenarios))
+
+    @property
+    def scenario_levels_display(self):
+        levels = self.scenario_levels()
+        if levels is None:
+            return ''
+        labels = dict(RiskLevelChoices.CHOICES)
+        return _('unmitigated {unmitigated}, residual {residual}').format(
+            unmitigated=labels.get(levels[0], '-'), residual=labels.get(levels[1], '-'))
+
+    @property
+    def understates_scenarios(self):
+        """The assessment's residual (or unmitigated) risk is lower than its worst threat scenario."""
+        levels = self.scenario_levels()
+        if levels is None:
+            return False
+        order = RiskLevelChoices.values()
+        for own, scenario in ((self.unmitigated_risk, levels[0]), (self.residual_risk, levels[1])):
+            if scenario and (not own or order.index(scenario) > order.index(own)):
+                return True
+        return False
+
     @property
     def sl_target_differs(self):
         """The SL-T this assessment arrives at differs from the SL-T recorded on its zone or conduit."""
@@ -973,46 +1002,14 @@ class RiskAssessment(PrimaryModel):
             raise ValidationError({'approved_on': _('An approved assessment has an approval date.')})
         if self.approved_on and self.approved_on < self.assessed_on:
             raise ValidationError({'approved_on': _('Approved before it was assessed.')})
-        # Likelihood and impact place a risk on the matrix, which then gives its level
-        for which in ('unmitigated', 'residual'):
-            likelihood, impact = getattr(self, f'{which}_likelihood'), getattr(self, f'{which}_impact')
-            if bool(likelihood) != bool(impact):
-                raise ValidationError({
-                    f'{which}_impact' if likelihood else f'{which}_likelihood':
-                        _('Likelihood and impact go together.'),
-                })
-            if not likelihood:
-                continue
-            level = risk.matrix_level(likelihood, impact)
-            if level is None:
-                raise ValidationError({f'{which}_likelihood': _('This is not on the risk matrix.')})
-            if not getattr(self, f'{which}_risk'):
-                setattr(self, f'{which}_risk', level)
-            elif getattr(self, f'{which}_risk') != level:
-                raise ValidationError({f'{which}_risk': _(
-                    'The risk matrix gives {level} for this likelihood and impact. Leave the level empty to take '
-                    'it from the matrix.').format(level=risk.LEVEL_LABELS[level])})
+        clean_matrix_levels(self)
 
     def save(self, *args, **kwargs):
-        # clean() fills the level in on the instance it validates, but the REST API validates a copy and saves
-        # another instance: take the level from the matrix here as well, so every path stores it.
-        for which in ('unmitigated', 'residual'):
-            if not getattr(self, f'{which}_risk'):
-                level = risk.matrix_level(getattr(self, f'{which}_likelihood'), getattr(self, f'{which}_impact'))
-                if level:
-                    setattr(self, f'{which}_risk', level)
+        fill_matrix_levels(self)
         super().save(*args, **kwargs)
 
     def _place(self, which):
-        likelihood, impact = getattr(self, f'{which}_likelihood'), getattr(self, f'{which}_impact')
-        if not likelihood or not impact:
-            return ''
-        matrix = risk.get_matrix()
-        try:
-            return (f'{likelihood} - {matrix["likelihood"][likelihood - 1]}, '
-                    f'{impact} - {matrix["impact"][impact - 1]}')
-        except IndexError:
-            return f'{likelihood}, {impact}'
+        return risk_place(self, which)
 
     @property
     def unmitigated_place(self):
@@ -1023,7 +1020,7 @@ class RiskAssessment(PrimaryModel):
         return self._place('residual')
 
     # Prefetch these on a list of assessments, so `current_step` needs no query per assessment
-    PREFETCH_SIBLINGS = ('zone__risk_assessments', 'conduit__risk_assessments')
+    PREFETCH_SIBLINGS = ('zone__risk_assessments', 'conduit__risk_assessments', 'scenarios')
 
     def siblings(self):
         """The other assessments of the same zone or conduit (from the prefetch when there is one)."""
@@ -1047,6 +1044,183 @@ class RiskAssessment(PrimaryModel):
 
     def get_status_color(self):
         return RiskAssessmentStatusChoices.colors.get(self.status)
+
+    def get_residual_risk_color(self):
+        return RiskLevelChoices.colors.get(self.residual_risk)
+
+
+def clean_matrix_levels(obj):
+    """
+    Likelihood and impact place the unmitigated and the residual risk on the risk matrix, which then gives their
+    level: an empty level is filled in, a level that contradicts the matrix is refused.
+    """
+    for which in ('unmitigated', 'residual'):
+        likelihood, impact = getattr(obj, f'{which}_likelihood'), getattr(obj, f'{which}_impact')
+        if bool(likelihood) != bool(impact):
+            raise ValidationError({
+                f'{which}_impact' if likelihood else f'{which}_likelihood': _('Likelihood and impact go together.'),
+            })
+        if not likelihood:
+            continue
+        level = risk.matrix_level(likelihood, impact)
+        if level is None:
+            raise ValidationError({f'{which}_likelihood': _('This is not on the risk matrix.')})
+        if not getattr(obj, f'{which}_risk'):
+            setattr(obj, f'{which}_risk', level)
+        elif getattr(obj, f'{which}_risk') != level:
+            raise ValidationError({f'{which}_risk': _(
+                'The risk matrix gives {level} for this likelihood and impact. Leave the level empty to take '
+                'it from the matrix.').format(level=risk.LEVEL_LABELS[level])})
+
+
+def fill_matrix_levels(obj):
+    """
+    clean() fills the level in on the instance it validates, but the REST API validates a copy and saves another
+    instance: take the level from the matrix on save as well, so every path stores it.
+    """
+    for which in ('unmitigated', 'residual'):
+        if not getattr(obj, f'{which}_risk'):
+            level = risk.matrix_level(getattr(obj, f'{which}_likelihood'), getattr(obj, f'{which}_impact'))
+            if level:
+                setattr(obj, f'{which}_risk', level)
+
+
+def risk_place(obj, which):
+    """'4 - Likely, 3 - Moderate': where the unmitigated or residual risk of `obj` sits on the risk matrix."""
+    likelihood, impact = getattr(obj, f'{which}_likelihood'), getattr(obj, f'{which}_impact')
+    if not likelihood or not impact:
+        return ''
+    matrix = risk.get_matrix()
+    try:
+        return (f'{likelihood} - {matrix["likelihood"][likelihood - 1]}, '
+                f'{impact} - {matrix["impact"][impact - 1]}')
+    except IndexError:
+        return f'{likelihood}, {impact}'
+
+
+def _level_field(name):
+    return models.CharField(verbose_name=name, max_length=20, choices=RiskLevelChoices, blank=True)
+
+
+def _scale_field(name):
+    return models.PositiveSmallIntegerField(
+        verbose_name=name, blank=True, null=True, validators=[MinValueValidator(1)],
+    )
+
+
+class RiskScenario(PrimaryModel):
+    """
+    One threat scenario of a detailed risk assessment (IEC 62443-3-2): a threat source that comes in through an entry
+    point (a flow or a conduit), uses a vulnerability against target assets, with a consequence; its likelihood and
+    impact before and after the countermeasures. The assessment's risk is the worst of its scenarios.
+    """
+    assessment = models.ForeignKey(
+        to=RiskAssessment,
+        on_delete=models.CASCADE,
+        related_name='scenarios',
+        verbose_name=_('risk assessment'),
+    )
+    name = models.CharField(verbose_name=_('name'), max_length=200)
+    threat_source = models.CharField(
+        verbose_name=_('threat source'), max_length=30, choices=ThreatSourceChoices, blank=True,
+    )
+    entry_flow = models.ForeignKey(
+        to=Flow,
+        on_delete=models.SET_NULL,
+        related_name='risk_scenarios',
+        verbose_name=_('entry flow'),
+        blank=True,
+        null=True,
+        help_text=_('How the threat comes in, e.g. the remote maintenance flow of a supplier'),
+    )
+    entry_conduit = models.ForeignKey(
+        to=Conduit,
+        on_delete=models.SET_NULL,
+        related_name='risk_scenarios',
+        verbose_name=_('entry conduit'),
+        blank=True,
+        null=True,
+        help_text=_('The conduit it comes through (taken from the entry flow when empty)'),
+    )
+    targets = models.ManyToManyField(
+        to='dcim.Device',
+        related_name='ot_risk_scenarios',
+        verbose_name=_('target assets'),
+        blank=True,
+    )
+    vulnerability = models.TextField(verbose_name=_('vulnerability'), blank=True)
+    consequence = models.TextField(verbose_name=_('consequence'), blank=True)
+    unmitigated_likelihood = _scale_field(_('unmitigated likelihood'))
+    unmitigated_impact = _scale_field(_('unmitigated impact'))
+    unmitigated_risk = _level_field(_('unmitigated risk'))
+    countermeasures = models.TextField(verbose_name=_('countermeasures'), blank=True)
+    requirement_statuses = models.ManyToManyField(
+        to='netbox_ot.RequirementStatus',
+        related_name='risk_scenarios',
+        verbose_name=_('requirement statuses'),
+        blank=True,
+        help_text=_('The IEC 62443-3-3 requirements whose countermeasures treat this scenario'),
+    )
+    residual_likelihood = _scale_field(_('residual likelihood'))
+    residual_impact = _scale_field(_('residual impact'))
+    residual_risk = _level_field(_('residual risk'))
+
+    clone_fields = ('assessment', 'threat_source', 'entry_conduit')
+
+    class Meta:
+        ordering = ('assessment', 'name', 'pk')
+        verbose_name = _('risk scenario')
+        verbose_name_plural = _('risk scenarios')
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def tolerable_risk(self):
+        return self.assessment.tolerable_risk if self.assessment_id else ''
+
+    @property
+    def method(self):
+        return self.assessment.method if self.assessment_id else ''
+
+    @property
+    def residual_above_tolerable(self):
+        order = RiskLevelChoices.values()
+        if not self.residual_risk or not self.tolerable_risk:
+            return False
+        return order.index(self.residual_risk) > order.index(self.tolerable_risk)
+
+    @property
+    def unmitigated_place(self):
+        return risk_place(self, 'unmitigated')
+
+    @property
+    def residual_place(self):
+        return risk_place(self, 'residual')
+
+    def clean(self):
+        super().clean()
+        if self.entry_flow_id and not self.entry_conduit_id and self.entry_flow.conduit_id:
+            self.entry_conduit_id = self.entry_flow.conduit_id
+        if self.assessment_id and self.entry_flow_id:
+            ra, flow = self.assessment, self.entry_flow
+            if ra.zone_id and ra.zone_id not in (flow.source_zone_id, flow.destination_zone_id):
+                raise ValidationError({'entry_flow': _('This flow does not reach or leave zone {zone}.').format(
+                    zone=ra.zone)})
+            if ra.conduit_id and flow.conduit_id != ra.conduit_id:
+                raise ValidationError({'entry_flow': _('This flow is not carried by conduit {conduit}.').format(
+                    conduit=ra.conduit)})
+        clean_matrix_levels(self)
+
+    def save(self, *args, **kwargs):
+        if self.entry_flow_id and not self.entry_conduit_id:
+            self.entry_conduit_id = Flow.objects.filter(pk=self.entry_flow_id).values_list(
+                'conduit_id', flat=True).first()
+        fill_matrix_levels(self)
+        super().save(*args, **kwargs)
+
+    def get_unmitigated_risk_color(self):
+        return RiskLevelChoices.colors.get(self.unmitigated_risk)
 
     def get_residual_risk_color(self):
         return RiskLevelChoices.colors.get(self.residual_risk)

@@ -46,6 +46,10 @@ groups = (
             permissions=['netbox_ot.view_riskassessment'], buttons=_buttons('riskassessment'),
         ),
         PluginMenuItem(
+            link='plugins:netbox_ot:riskscenario_list', link_text=_('Risk scenarios'),
+            permissions=['netbox_ot.view_riskscenario'], buttons=_buttons('riskscenario'),
+        ),
+        PluginMenuItem(
             link='plugins:netbox_ot:requirementstatus_list', link_text=_('Requirement statuses'),
             permissions=['netbox_ot.view_requirementstatus'], buttons=_buttons('requirementstatus'),
         ),

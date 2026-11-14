@@ -23,6 +23,8 @@ urlpatterns = [
     path('industrial-services/<int:pk>/', include(get_model_urls('netbox_ot', 'industrialservice'))),
     path('risk-assessments/', include(get_model_urls('netbox_ot', 'riskassessment', detail=False))),
     path('risk-assessments/<int:pk>/', include(get_model_urls('netbox_ot', 'riskassessment'))),
+    path('risk-scenarios/', include(get_model_urls('netbox_ot', 'riskscenario', detail=False))),
+    path('risk-scenarios/<int:pk>/', include(get_model_urls('netbox_ot', 'riskscenario'))),
     path('access-map/', views.AccessMapView.as_view(), name='accessmap'),
     path('checks/', views.ChecksView.as_view(), name='checks'),
     path('risk-register/', views.RiskRegisterView.as_view(), name='risk_register'),

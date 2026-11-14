@@ -12,13 +12,14 @@ from .models import (
     IndustrialService,
     RequirementStatus,
     RiskAssessment,
+    RiskScenario,
     SystemRequirement,
     Zone,
 )
 
 __all__ = (
     'ConduitTable', 'FieldbusTable', 'FlowHopTable', 'FlowTable', 'IndustrialServiceTable', 'RequirementStatusTable',
-    'RiskAssessmentTable', 'SystemRequirementTable', 'ZoneTable',
+    'RiskAssessmentTable', 'RiskScenarioTable', 'SystemRequirementTable', 'ZoneTable',
 )
 
 ACCESS_BADGES = """
@@ -225,6 +226,32 @@ class RiskAssessmentTable(PrimaryModelTable):
         default_columns = (
             'pk', 'assessment', 'subject', 'status', 'approved_by', 'unmitigated_risk', 'residual_risk',
             'tolerable_risk', 'current_step', 'next_review',
+        )
+
+
+class RiskScenarioTable(PrimaryModelTable):
+    name = tables.Column(verbose_name=_('Scenario'), linkify=True)
+    assessment = tables.Column(verbose_name=_('Risk assessment'), linkify=True)
+    threat_source = columns.ChoiceFieldColumn(verbose_name=_('Threat source'))
+    entry_flow = tables.Column(verbose_name=_('Entry flow'), linkify=True)
+    entry_conduit = tables.Column(verbose_name=_('Entry conduit'), linkify=True)
+    targets = columns.ManyToManyColumn(verbose_name=_('Targets'), linkify_item=True)
+    requirement_statuses = columns.ManyToManyColumn(verbose_name=_('Requirement statuses'), linkify_item=True)
+    unmitigated_risk = columns.ChoiceFieldColumn(verbose_name=_('Unmitigated'))
+    residual_risk = columns.ChoiceFieldColumn(verbose_name=_('Residual'))
+    tags = columns.TagColumn(url_name='plugins:netbox_ot:riskscenario_list')
+
+    class Meta(PrimaryModelTable.Meta):
+        model = RiskScenario
+        fields = (
+            'pk', 'id', 'name', 'assessment', 'threat_source', 'entry_flow', 'entry_conduit', 'targets',
+            'vulnerability', 'consequence', 'unmitigated_likelihood', 'unmitigated_impact', 'unmitigated_risk',
+            'countermeasures', 'requirement_statuses', 'residual_likelihood', 'residual_impact', 'residual_risk',
+            'description', 'comments', 'tags', 'created', 'last_updated',
+        )
+        default_columns = (
+            'pk', 'name', 'assessment', 'threat_source', 'entry_flow', 'targets', 'unmitigated_risk',
+            'residual_risk',
         )
 
 

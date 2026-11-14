@@ -1,0 +1,42 @@
+{% extends 'ui/panels/_base.html' %}
+{% load i18n %}
+{% block panel_content %}
+  {% if flow %}
+    <table class="table table-hover attr-table mb-0">
+      <tr>
+        <th scope="row">{% trans "Entry flow" %}</th>
+        <td>{{ flow|linkify }}</td>
+      </tr>
+      <tr>
+        <th scope="row">{% trans "From / to" %}</th>
+        <td>{{ flow.source_zone|linkify }} &rarr; {{ flow.destination_zone|linkify }}</td>
+      </tr>
+      <tr>
+        <th scope="row">{% trans "Service" %}</th>
+        <td>{{ flow.get_protocol_display }} {{ flow.ports_short }}</td>
+      </tr>
+      <tr>
+        <th scope="row">{% trans "Access" %}</th>
+        <td>{% for value, label, color in flow.get_access_display %}{% badge label bg_color=color %} {% empty %}{{ ''|placeholder }}{% endfor %}</td>
+      </tr>
+      <tr>
+        <th scope="row">{% trans "Why it matters" %}</th>
+        <td>
+          {% if flow.remote_access %}<span class="badge text-bg-red">{% trans "remote access" %}</span>{% endif %}
+          {% if info.outside %}<span class="badge text-bg-orange">{% trans "from outside" %}</span>{% endif %}
+          {% if info.changes and info.into_control %}<span class="badge text-bg-orange">{% trans "changes the controllers" %}</span>{% endif %}
+          {% if not flow.remote_access and not info.outside and not info.changes %}{{ ''|placeholder }}{% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th scope="row">{% trans "Allowed" %}</th>
+        <td>
+          {% badge flow.get_allowed_display bg_color=flow.get_allowed_color %}
+          {% if flow.expires %}<span class="small text-muted">{% blocktrans with date=flow.expires|date:"Y-m-d" %}until {{ date }}{% endblocktrans %}</span>{% elif flow.remote_access and flow.allowed == 'yes' %}<span class="small text-danger">{% trans "no expiry date" %}</span>{% endif %}
+        </td>
+      </tr>
+    </table>
+  {% else %}
+    <div class="card-body text-muted small">{% trans "No entry flow recorded: pick the flow the threat comes in by (for remote maintenance, the supplier's flow into the zone)." %}</div>
+  {% endif %}
+{% endblock %}

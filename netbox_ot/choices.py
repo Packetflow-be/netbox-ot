@@ -344,6 +344,29 @@ class RiskLevelChoices(ChoiceSet):
     )
 
 
+class ThreatSourceChoices(ChoiceSet):
+    """Who or what a threat scenario starts from (IEC 62443-3-2 identifies threats by their source)."""
+    INSIDER = 'insider'
+    SUPPLIER = 'supplier'
+    OPPORTUNISTIC = 'opportunistic'
+    CRIMINAL = 'criminal'
+    HACKTIVIST = 'hacktivist'
+    NATION_STATE = 'nation-state'
+    ACCIDENT = 'accident'
+    OTHER = 'other'
+
+    CHOICES = (
+        Choice(INSIDER, _('Insider (staff, contractor)'), color='orange'),
+        Choice(SUPPLIER, _('Supplier or integrator'), color='orange'),
+        Choice(OPPORTUNISTIC, _('Opportunistic malware or ransomware'), color='red'),
+        Choice(CRIMINAL, _('Organised crime'), color='red'),
+        Choice(HACKTIVIST, _('Hacktivist'), color='purple'),
+        Choice(NATION_STATE, _('Nation-state'), color='purple'),
+        Choice(ACCIDENT, _('Accident or human error'), color='blue'),
+        Choice(OTHER, _('Other'), color='gray'),
+    )
+
+
 class RiskAssessmentKindChoices(ChoiceSet):
     """IEC 62443-3-2: the initial (high-level, worst case) and the detailed risk assessment."""
     INITIAL = 'initial'

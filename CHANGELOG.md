@@ -7,6 +7,14 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
 
 ### Enhancements
 
+- **Threat scenarios** ([#46](https://github.com/Packetflow-be/netbox-ot/issues/46)): a new model (migration
+  0007) under a risk assessment, for the IEC 62443-3-2 detailed assessment: threat source, entry flow or conduit,
+  target devices, vulnerability, consequence, likelihood and impact before and after countermeasures, and the
+  requirement statuses that treat it. The scenario page shows the way in (remote access, write/program access,
+  from outside, verdict, expiry); the assessment lists its scenarios, shows the worst one, and counts them in its
+  steps. New check `risk-below-scenarios` (warning). List, filters, import, REST API (`risk-scenarios`), GraphQL
+  (`ot_risk_scenario`), search.
+
 - **Accepting a residual risk above tolerable** ([#46](https://github.com/Packetflow-be/netbox-ot/issues/46)):
   record who accepted it, when, why and until when (migration 0006, all optional). An acceptance that has not
   ended completes the step, puts the zone or conduit under *Accepted above tolerable* in the risk register and

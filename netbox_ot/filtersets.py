@@ -30,6 +30,7 @@ from .choices import (
     RiskAssessmentStatusChoices,
     RiskLevelChoices,
     ServiceRoleChoices,
+    ThreatSourceChoices,
     ZoneTypeChoices,
 )
 from .models import (
@@ -40,6 +41,7 @@ from .models import (
     IndustrialService,
     RequirementStatus,
     RiskAssessment,
+    RiskScenario,
     SystemRequirement,
     Zone,
     stale_after_days,
@@ -47,7 +49,8 @@ from .models import (
 
 __all__ = (
     'ConduitFilterSet', 'FieldbusFilterSet', 'FlowFilterSet', 'FlowHopFilterSet', 'IndustrialServiceFilterSet',
-    'RequirementStatusFilterSet', 'RiskAssessmentFilterSet', 'SystemRequirementFilterSet', 'ZoneFilterSet',
+    'RequirementStatusFilterSet', 'RiskAssessmentFilterSet', 'RiskScenarioFilterSet', 'SystemRequirementFilterSet',
+    'ZoneFilterSet',
 )
 
 
@@ -695,3 +698,90 @@ class RequirementStatusFilterSet(PrimaryModelFilterSet):
             return queryset
         q = Q(zone__site__in=value) | Q(conduit__site__in=value) | Q(conduit__zones__site__in=value)
         return queryset.filter(q).distinct()
+
+
+@register_filterset
+class RiskScenarioFilterSet(PrimaryModelFilterSet):
+    assessment_id = django_filters.ModelMultipleChoiceFilter(
+        queryset=RiskAssessment.objects.all(),
+        distinct=False,
+        label=_('Risk assessment (ID)'),
+    )
+    zone_id = django_filters.ModelMultipleChoiceFilter(
+        field_name='assessment__zone',
+        queryset=Zone.objects.all(),
+        distinct=False,
+        label=_('Zone (ID) of the assessment'),
+    )
+    conduit_id = django_filters.ModelMultipleChoiceFilter(
+        field_name='assessment__conduit',
+        queryset=Conduit.objects.all(),
+        distinct=False,
+        label=_('Conduit (ID) of the assessment'),
+    )
+    site_id = django_filters.ModelMultipleChoiceFilter(
+        queryset=Site.objects.all(),
+        method='filter_site',
+        label=_('Site (ID) of the zone or conduit'),
+    )
+    threat_source = django_filters.MultipleChoiceFilter(choices=ThreatSourceChoices, distinct=False)
+    entry_flow_id = django_filters.ModelMultipleChoiceFilter(
+        queryset=Flow.objects.all(),
+        distinct=False,
+        label=_('Entry flow (ID)'),
+    )
+    entry_conduit_id = django_filters.ModelMultipleChoiceFilter(
+        queryset=Conduit.objects.all(),
+        distinct=False,
+        label=_('Entry conduit (ID)'),
+    )
+    device_id = django_filters.ModelMultipleChoiceFilter(
+        field_name='targets',
+        queryset=Device.objects.all(),
+        label=_('Target asset (ID)'),
+    )
+    requirement_status_id = django_filters.ModelMultipleChoiceFilter(
+        field_name='requirement_statuses',
+        queryset=RequirementStatus.objects.all(),
+        label=_('Requirement status (ID)'),
+    )
+    remote_access = django_filters.BooleanFilter(
+        field_name='entry_flow__remote_access', label=_('Comes in by remote access'),
+    )
+    unmitigated_risk = django_filters.MultipleChoiceFilter(choices=RiskLevelChoices, distinct=False)
+    residual_risk = django_filters.MultipleChoiceFilter(choices=RiskLevelChoices, distinct=False)
+    residual_above_tolerable = django_filters.BooleanFilter(
+        method='filter_residual_above_tolerable', label=_('Residual risk above the tolerable risk of the assessment'),
+    )
+
+    class Meta:
+        model = RiskScenario
+        fields = ('id', 'name', 'description', 'unmitigated_likelihood', 'unmitigated_impact', 'residual_likelihood',
+                  'residual_impact')
+
+    def search(self, queryset, name, value):
+        if not value.strip():
+            return queryset
+        return queryset.filter(
+            Q(name__icontains=value) |
+            Q(vulnerability__icontains=value) |
+            Q(consequence__icontains=value) |
+            Q(countermeasures__icontains=value) |
+            Q(description__icontains=value)
+        )
+
+    def filter_site(self, queryset, name, value):
+        if not value:
+            return queryset
+        q = Q(assessment__zone__site__in=value) | Q(assessment__conduit__site__in=value) | \
+            Q(assessment__conduit__zones__site__in=value)
+        return queryset.filter(q).distinct()
+
+    def filter_residual_above_tolerable(self, queryset, name, value):
+        if value is None:
+            return queryset
+        levels = RiskLevelChoices.values()
+        q = Q()
+        for i, tolerable in enumerate(levels):
+            q |= Q(assessment__tolerable_risk=tolerable, residual_risk__in=levels[i + 1:])
+        return queryset.filter(q) if value else queryset.exclude(q)

@@ -130,7 +130,7 @@ class Scope:
             Q(zone__in=self.zones) | Q(conduit__in=self.conduits)
         ).order_by('-assessed_on', '-pk')
         latest = {}
-        for ra in qs.select_related('zone', 'conduit'):
+        for ra in qs.select_related('zone', 'conduit').prefetch_related('scenarios'):
             latest.setdefault(('zone', ra.zone_id) if ra.zone_id else ('conduit', ra.conduit_id), ra)
         return latest
 
@@ -377,6 +377,16 @@ def risk_accepted(scope):
                 tolerable=ra.get_tolerable_risk_display(), who=ra.risk_accepted_by,
                 until=_('until {date}').format(date=ra.risk_accepted_until) if ra.risk_accepted_until
                 else _('without an end date'))
+
+
+@check('risk-below-scenarios', _('Risk lower than its worst threat scenario'), WARNING)
+def risk_below_scenarios(scope):
+    for ra in scope.latest_assessments().values():
+        if ra.understates_scenarios:
+            yield ra, _('{subject}: the risk of {ra} ({own}) is lower than its worst threat scenario ({worst})').format(
+                subject=ra.subject, ra=ra, worst=ra.scenario_levels_display,
+                own=_('unmitigated {u}, residual {r}').format(
+                    u=ra.get_unmitigated_risk_display() or '-', r=ra.get_residual_risk_display() or '-'))
 
 
 @check('sl-target-differs', _('SL-T differs from its risk assessment'), WARNING)

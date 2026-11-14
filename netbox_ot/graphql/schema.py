@@ -9,6 +9,7 @@ from .types import (
     IndustrialServiceType,
     RequirementStatusType,
     RiskAssessmentType,
+    RiskScenarioType,
     SystemRequirementType,
     ZoneType,
 )
@@ -30,6 +31,9 @@ class IEC62443Query:
 
     ot_risk_assessment: RiskAssessmentType = strawberry_django.field()
     ot_risk_assessment_list: list[RiskAssessmentType] = strawberry_django.field()
+
+    ot_risk_scenario: RiskScenarioType = strawberry_django.field()
+    ot_risk_scenario_list: list[RiskScenarioType] = strawberry_django.field()
 
     ot_system_requirement: SystemRequirementType = strawberry_django.field()
     ot_system_requirement_list: list[SystemRequirementType] = strawberry_django.field()
