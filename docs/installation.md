@@ -95,8 +95,11 @@ has the background and variants of these steps.
 The plugin shows up under *Admin > System > Plugins*, as an *OT* menu, and in the API status:
 
 ```bash
-curl -s -H "Authorization: Token $TOKEN" https://netbox.example.com/api/status/ | grep netbox_ot
+curl -s -H "Authorization: Bearer $TOKEN" https://netbox.example.com/api/status/ | grep netbox_ot
 ```
+
+`$TOKEN` is a v2 API token (`nbt_<key>.<token>`). v1 tokens (`Authorization: Token <40 hex>`) still work but are
+deprecated since NetBox 4.7.
 
 ## Try it with the demo plant
 

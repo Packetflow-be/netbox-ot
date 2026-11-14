@@ -88,6 +88,14 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
 - The OT overview docs say that adding conduits raises the finding count first, and that one bulk edit sets the
   owner and SL-T of the new conduits ([#35](https://github.com/Packetflow-be/netbox-ot/issues/35)).
 
+### Documentation
+
+- API docs list the `risk-scenarios/` endpoint and the `ot_risk_scenario(_list)` GraphQL queries, and the
+  GraphQL example paginates (`pagination: {limit: 50}`, `start` for large sites), as NetBox's
+  [API best practices](https://github.com/netboxlabs/netbox-best-practices) ask.
+- The installation check uses a v2 API token (`Authorization: Bearer nbt_...`); v1 tokens are deprecated since
+  NetBox 4.7.
+
 ## 0.5.1 (2026-11-14)
 
 Patch release with the fixes and usability changes from the second field review
