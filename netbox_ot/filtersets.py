@@ -1,4 +1,3 @@
-import datetime
 
 import django_filters
 from django.db.models import Func, Q, TextField, Value
@@ -14,7 +13,7 @@ from utilities.filtersets import register_filterset
 from virtualization.models import VirtualMachine
 from vpn.models import Tunnel
 
-from . import exposure, sl
+from . import exposure, sl, staleness
 from .choices import (
     AccessChoices,
     ConnectionChoices,
@@ -42,7 +41,6 @@ from .models import (
     RiskAssessment,
     SystemRequirement,
     Zone,
-    stale_after_days,
 )
 
 __all__ = (
@@ -335,8 +333,7 @@ class FlowFilterSet(PrimaryModelFilterSet):
     def filter_stale(self, queryset, name, value):
         if value is None:
             return queryset
-        q = Q(last_seen__lt=timezone.now() - datetime.timedelta(days=stale_after_days()))
-        return queryset.filter(q) if value else queryset.exclude(q)
+        return staleness.filter_stale(queryset, stale=value)
 
     def filter_undecided_into_control(self, queryset, name, value):
         if value is None:

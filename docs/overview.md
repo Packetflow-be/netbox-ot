@@ -6,6 +6,10 @@ Every site with zones has an *OT overview* tab: where the site stands, on one pa
 entered here. It is all derived from the zones, conduits, risk assessments and requirement statuses, so it is
 as good as what is recorded there.
 
+A site without zones that has devices or VMs with an address or a Purdue level gets the tab too, with only a
+*Where to start* card: import a capture (`ot_import --suggest-zone-map` drafts the zone map) or add the zones by
+hand, then open the checks. The checks of that site already list its devices under `asset-without-zone`.
+
 ## Exposure of the controllers and next steps
 
 The first two cards need no levels or assessments, so they say something from the first import on.
@@ -27,7 +31,9 @@ on yet, with a link to exactly those flows. These are the conditions of the chec
 5. risk assessments and requirement statuses.
 
 Each step says how many objects are left and links to the list of them, where one bulk edit sets a field on
-all of them. The first open step is marked *now*; a step with nothing left is ticked. External zones (a
+all of them. Step 4 makes the finding count go up before it goes down: every new conduit needs an owner, an
+SL-T and a risk assessment of its own (three `info` findings). Select the new conduits in the conduit list and
+set the owner and SL-T in one bulk edit; the risk assessments follow in step 5. The first open step is marked *now*; a step with nothing left is ticked. External zones (a
 supplier, an MSP, the internet) are outside the system under consideration: they count as exposure, never as
 missing paperwork.
 

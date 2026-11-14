@@ -1,0 +1,12 @@
+{% extends "ui/panels/_base.html" %}
+{% load i18n %}
+{# Like NetBox's text code panel, but long lines (request lines, addresses, topics) wrap instead of running off the card #}
+{% block panel_content %}
+  <div class="card-body">
+    {% if value %}
+      <pre class="mb-0" style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ value }}</pre>
+    {% else %}
+      <span class="text-muted">{% trans "None" %}</span>
+    {% endif %}
+  </div>
+{% endblock panel_content %}

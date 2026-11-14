@@ -81,7 +81,7 @@ station at .30 in *Cell A (supervisory)*, so their reads and writes to the PLCs 
 |---|---|---|---|
 | `modbus` (Zeek) | Modbus TCP | `func` | every record |
 | `modbus_detailed`, `modbus_read_write_multiple_registers`, `modbus_mask_write_register` (ICSNPP) | Modbus TCP | `func` | `request_response` = REQUEST |
-| `s7comm` (ICSNPP) | S7comm | `function_name`, else `subfunction_name` | `is_orig` |
+| `s7comm` (ICSNPP) | S7comm | `subfunction_name` (a User-Data request: `Read SZL` in the group `CPU Functions`), else `function_name` | `is_orig` |
 | `s7comm_plus` (ICSNPP) | S7comm-plus | `function_name`, else `opcode_name` | `is_orig` |
 | `cip` (ICSNPP) | EtherNet/IP | `cip_service` | `direction` = request |
 | `enip` (ICSNPP) | EtherNet/IP | `enip_command` | `is_orig` |
@@ -120,6 +120,14 @@ skipped, and so is one that was answered but carried no data either way (a SYN s
 (syslog, SNMP traps) counts. The ports of answered TCP connections become the responder's open ports.
 Multicast and broadcast destinations and IPv6 addresses are skipped.
 
+Two cases are folded so they do not make a misleading flow, per source, destination and port:
+
+- the same two hosts have protocol-log requests on that port: the other connections are that protocol's too
+  (COTP connects and S7 acknowledgements to a PLC on tcp/102 that carry no S7 request), and count under it
+  instead of becoming a second, unidentified flow next to the S7comm one;
+- most connections stayed unidentified and Zeek's payload detection named a service on a tenth of them or
+  fewer: the guess is not trusted ("smb" on 2 of 217 Telnet connections on tcp/23), they count as `tcp/<port>`.
+
 **Port scans.** A source that tried 100 or more TCP ports, with data on at most a fifth of them, is a scanner.
 The import says so ("Port scan: 192.168.2.88 (Visitors) tried 1015 TCP ports on 17 host(s) in Lab devices"),
 the flows between the two zones carry it in their evidence, and what the scanner reached with only `conn.log`
@@ -128,7 +136,9 @@ ports. Its requests in a protocol log (an S7 or Modbus read from a scan script) 
 reach the controller. On the 4SICS day-2 capture this turns eight flows from the visitors' network, one with
 55 ports, into three.
 
-A flow from an external zone is marked as remote access.
+A flow from an external zone is marked as remote access, unless all it carried is unidentified UDP, ICMP or a
+port scan: a stray packet from the internet is not someone working in the plant. Its evidence then says it was
+not marked; set it by hand if someone does work through that path.
 
 ## Hosts NetBox does not know
 

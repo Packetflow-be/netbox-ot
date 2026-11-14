@@ -56,7 +56,7 @@ class ZoneTypeChoices(ChoiceSet):
     EXTERNAL = 'external'
 
     CHOICES = (
-        Choice(OT, _('OT (control)'), color='red'),
+        Choice(OT, _('OT'), color='red'),
         Choice(SAFETY, _('Safety (SIS)'), color='purple'),
         Choice(DMZ, _('DMZ'), color='cyan'),
         Choice(ENTERPRISE, _('Enterprise'), color='blue'),

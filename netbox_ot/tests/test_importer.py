@@ -473,7 +473,8 @@ class SiteAndVRFScopeTest(TestCase):
         self.assertEqual(list(zone.prefixes.all()), [self.net_vrf])
         self.assertFalse(zone.virtual_machines.exists())  # the HMI VM is in the global table
         self.assertEqual(stats['assets not found in NetBox'], 1)
-        self.assertIn('192.168.0.20: no device or VM with this primary IPv4 (site Plant A, VRF Machine 7)', lines)
+        self.assertIn('no device or VM has this primary IPv4 (site Plant A, VRF Machine 7), 1 address(es): '
+                      '192.168.0.20; --unknown-import writes files to add them', lines)
 
     def test_duplicates_in_one_site_and_vrf_are_skipped(self):
         make_asset('plc-a-twin', '192.168.0.10', self.site_a)
@@ -507,7 +508,7 @@ class SiteAndVRFScopeTest(TestCase):
                            log=lines.append)
         self.assertEqual(Zone.objects.get(site=self.site_a, name='Cell').zone_type, 'ot')
         self.assertEqual(stats['zones whose type differs from the input (kept)'], 1)
-        self.assertIn('zone Cell: the input says DMZ, NetBox has OT (control); kept. Change it in NetBox if the input '
+        self.assertIn('zone Cell: the input says DMZ, NetBox has OT; kept. Change it in NetBox if the input '
                       'is right.', lines)
 
     def test_moved_asset_is_reported_and_moved_on_request(self):

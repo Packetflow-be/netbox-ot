@@ -18,7 +18,7 @@ is allowed?**
   are remote access or come from outside, and the flows allowed straight from outside into a control zone (the
   `undecided-into-control` and `outside-into-control` checks; also flow filters of those names). Then it sums
   up expired access, verdicts due for review, flows not seen for `stale_after_days`
-  (default 90), flows that run outside any documented conduit, and flows that reach their zone over a connection
+  (default 90) before the latest observation at the site, flows that run outside any documented conduit, and flows that reach their zone over a connection
   opened from inside it (reverse connect, a broker: see [Connection models](data-model.md#connection-models)).
 - A flow with another [connection model](data-model.md#connection-models) than client/server shows it under the
   protocol, with the broker's zone and the topics.
