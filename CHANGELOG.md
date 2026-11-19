@@ -3,7 +3,10 @@
 Each release opens with what kind of release it is. Breaking changes are listed under **Breaking Changes**.
 Numbers link to the issue or pull request on GitHub; entries without a number predate the public repository.
 
-## Unreleased
+## 0.7.1 (2026-11-19)
+
+Patch release: the demo plant gets a monitoring proxy and an external NOC. No code changes outside `ot_demo`,
+no migrations.
 
 ### Enhancements
 
