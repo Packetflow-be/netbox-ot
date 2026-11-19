@@ -103,9 +103,9 @@ deprecated since NetBox 4.7.
 
 ## Try it with the demo plant
 
-`ot_demo` creates a fictional plant: zones, conduits, flows, an MSP remote-access path, industrial
-services, risk assessments and a few things the checks will flag. Open the site *IEC 62443 demo plant* and its
-*Access map* and *Zone register* tabs. `--delete` removes exactly what the command created.
+`ot_demo` creates a fictional plant: zones, conduits, flows, an MSP remote-access path, a monitoring
+proxy that reports to a NOC, industrial services, risk assessments and a few things the checks will flag. Open the
+site *IEC 62443 demo plant* and its *Access map* and *Zone register* tabs. `--delete` removes exactly what the command created.
 
 ```bash
 sudo /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py ot_demo
