@@ -2,8 +2,10 @@
 Demo data: a small fictional plant with zones, conduits, flows, services and risk assessments, so a new user sees
 a populated access map, zone register and consistency checks within minutes. The plant is cabled (a switch per
 zone, each on its own firewall port) and line 1 is a location, so the machine drawing has a machine to draw.
-Everything it creates belongs to the demo site (and the demo MSP zone, contacts, tenant group, VPN tunnel and
-roles named "IEC 62443 demo ..."), and --delete removes exactly that.
+A monitoring proxy in its own segment polls the line and reports to an external NOC over one outbound connection,
+so the drawing and the access map show where monitoring enters the plant and how it leaves.
+Everything it creates belongs to the demo site (and the demo MSP and NOC zones, contacts, tenant group, VPN tunnel
+and roles named "IEC 62443 demo ..."), and --delete removes exactly that.
 """
 import datetime
 
@@ -23,7 +25,8 @@ SWITCHES = {'cell': ('demo01be1-sw001', 'Line 1 cell switch'),
             'control': ('demo01be1-sw002', 'Control room switch'),
             'dmz': ('demo01be1-sw003', 'OT DMZ switch'),
             'office': ('demo01be1-sw004', 'Office switch')}
-ZONE_COLORS = {'cell': 'ff9800', 'control': '2196f3', 'dmz': '9c27b0', 'office': '9e9e9e', 'safety': 'ffeb3b'}
+ZONE_COLORS = {'cell': 'ff9800', 'control': '2196f3', 'dmz': '9c27b0', 'office': '9e9e9e', 'safety': 'ffeb3b',
+               'monitoring': '4caf50'}
 CABLES = (  # label, plant device (its eth0), switch, port, description
     ('PLC 1 - Line 1 cell switch', 'demo-plc-1', 'cell', 1, 'Line 1 PLC'),
     ('PLC 2 - Line 1 cell switch', 'demo-plc-2', 'cell', 2, 'Line 1 PLC'),
@@ -100,7 +103,7 @@ class Command(BranchCommand):
         )
 
         site = Site.objects.filter(slug=SITE_SLUG).first()
-        zones = Zone.objects.filter(site=site) | Zone.objects.filter(name=f'{PREFIX} MSP')
+        zones = Zone.objects.filter(site=site) | Zone.objects.filter(name__in=(f'{PREFIX} MSP', f'{PREFIX} NOC'))
         conduits = Conduit.objects.filter(zones__in=zones).distinct()
         devices = Device.objects.filter(site=site)
         vms = VirtualMachine.objects.filter(site=site)
@@ -162,7 +165,7 @@ class Command(BranchCommand):
         ot_lead = Contact.objects.create(name='Demo OT security lead', description=PREFIX)
         maker = Manufacturer.objects.create(name=PREFIX, slug='iec62443-demo')
         roles = {r: DeviceRole.objects.create(name=f'{PREFIX} {r}', slug=f'iec62443-demo-{r.lower()}')
-                 for r in ('PLC', 'HMI', 'Firewall', 'Server', 'Gateway', 'Laptop')}
+                 for r in ('PLC', 'HMI', 'Firewall', 'Server', 'Gateway', 'Laptop', 'Monitoring')}
         types = {
             'plc': DeviceType.objects.create(manufacturer=maker, model='Demo PLC', slug='iec62443-demo-plc',
                                              custom_field_data={SLC_CF_NAME: '2,2,2,1,2,1,1'}),
@@ -211,9 +214,17 @@ class Command(BranchCommand):
                                      zone_type='enterprise', wireless=True)
         msp = Zone.objects.create(name=f'{PREFIX} MSP', slug='iec62443-demo-msp', zone_type='external',
                                   description='Managed service provider that maintains the SCADA servers')
+        monitoring = Zone.objects.create(
+            name='OT monitoring', slug='ot-monitoring', site=site, purdue_level='3.5', zone_type='dmz',
+            sl_target=[2] * 7, sl_achieved=[2] * 7, accountable=ot_lead,
+            description='Monitoring proxy on its own firewall port: it polls the plant and forwards to the NOC')
+        noc = Zone.objects.create(name=f'{PREFIX} NOC', slug='iec62443-demo-noc', zone_type='external',
+                                  description='Monitoring service (NOC) that receives the plant\'s alarms and metrics; '
+                                              'it never connects in')
         vlans = {}
         for zone, cidr, vid in ((cell, '10.61.1.0/24', 101), (control, '10.61.2.0/24', 102),
-                                (dmz, '10.61.35.0/24', 135), (office, '10.61.4.0/24', 104)):
+                                (dmz, '10.61.35.0/24', 135), (monitoring, '10.61.36.0/24', 136),
+                                (office, '10.61.4.0/24', 104)):
             vlans[zone.pk] = VLAN.objects.create(vid=vid, name=zone.name, site=site, status='active',
                                                  description=f'{PREFIX} {zone.name}')
             net = prefix(cidr, zone.name)
@@ -221,6 +232,7 @@ class Command(BranchCommand):
             net.save()
             zone.prefixes.add(net)
         msp.prefixes.add(Prefix.objects.create(prefix='192.0.2.0/24', description=f'{PREFIX} MSP'))
+        noc.prefixes.add(Prefix.objects.create(prefix='198.51.100.0/24', description=f'{PREFIX} NOC'))
 
         # Assets
         plc1 = device('demo-plc-1', 'plc', 'PLC', '10.61.1.10', '1', 'V2.8.3', line1)
@@ -233,6 +245,9 @@ class Command(BranchCommand):
         historian = vm('demo-historian', '10.61.35.10', '3.5')
         jump = vm('demo-jump-1', '10.61.35.20', '3.5')
         laptop = device('demo-office-laptop', 'box', 'Laptop', '10.61.4.30', '4')
+        proxy = device('demo-mon-1', 'box', 'Monitoring', '10.61.36.10', '3.5')
+        proxy.description = 'Monitoring proxy: polls the line, forwards alarms and metrics to the NOC'
+        proxy.save()
         device('demo-unzoned-camera', 'box', 'Gateway', '10.61.1.99', '', location=line1)  # seen, in no zone
         cell.devices.add(plc1, plc2, gw)
         sis.devices.add(sis_plc)
@@ -240,6 +255,7 @@ class Command(BranchCommand):
         dmz.devices.add(fw)
         dmz.virtual_machines.add(historian, jump)
         office.devices.add(laptop)
+        monitoring.devices.add(proxy)
         # The historian reads the gateway through a 1:1 NAT on the firewall (NetBox's own NAT inside/outside)
         IPAddress.objects.create(address='10.61.35.120/24', nat_inside=gw.primary_ip4, description=PREFIX)
 
@@ -281,6 +297,9 @@ class Command(BranchCommand):
                   f'Conduit through the firewall to the {title.lower()}')
         cable('Firewall - OT DMZ switch', port(fw, 'eth0'), port(switches['dmz'], 'port8'), ZONE_COLORS['dmz'],
               'Firewall DMZ port; the historian and the jump host are VMs on this segment')
+        cable('Firewall - Monitoring proxy', port(fw, 'eth4', 'To the monitoring segment'),
+              port(proxy, 'eth0'), ZONE_COLORS['monitoring'],
+              'The monitoring proxy has its own firewall port: everything it polls or forwards passes a rule')
         cable('Safety PLC - PLC 1', port(sis_plc, 'eth0'), port(plc1, 'eth1', 'Dedicated link to the safety PLC'),
               ZONE_COLORS['safety'], 'Safety PLC on its own segment: a point-to-point link to PLC 1 only')
 
@@ -299,6 +318,13 @@ class Command(BranchCommand):
                                           accountable=ot_lead)
         c_remote.zones.set([msp, dmz])
         c_remote.enforcing_devices.add(fw)
+        c_mon = Conduit.objects.create(name='Monitoring - Line 1', site=site, sl_target=[2] * 7, accountable=ot_lead)
+        c_mon.zones.set([monitoring, cell])
+        c_mon.enforcing_devices.add(fw)
+        c_noc = Conduit.objects.create(name='Remote monitoring', site=site, sl_target=[2] * 7, accountable=ot_lead,
+                                       description='Outbound only: the proxy connects to the NOC, never the reverse')
+        c_noc.zones.set([monitoring, noc])
+        c_noc.enforcing_devices.add(fw)
 
         seen = {'first_seen': now - datetime.timedelta(days=14), 'last_seen': now - datetime.timedelta(days=1)}
         evidence = 'Passively seen in the demo capture (2 weeks, SPAN on the OT core switch).'
@@ -328,6 +354,24 @@ class Command(BranchCommand):
         # publishes on the command topic reaches the gateway
         flow(office, cell, 'mqtt', ['tcp/8883'], ['write'], connection='brokered', broker_zone=dmz,
              topics=['spBv1.0/line1/DCMD/demo-gw-1'], name='Recipe changes through the MQTT broker')
+
+        # Monitoring: the proxy reads the line (and, undecided, the control room), the line sends its traps and the
+        # gateway's agent its values to the proxy, and the proxy forwards everything to the NOC over one outbound
+        # connection. Nothing in the NOC can reach into the plant.
+        flow(monitoring, cell, 'snmp', ['udp/161'], ['read'], 'yes', conduit=c_mon, decided_by=ot_lead,
+             name='Monitoring: SNMP polling of the line', description='SNMPv3, read-only view: the cell switch and '
+                                                                      'the protocol gateway')
+        flow(cell, monitoring, 'snmp', ['udp/162'], [], 'yes', conduit=c_mon, decided_by=ot_lead,
+             name='SNMP traps from the line', description='Link and power alarms from the cell switch')
+        flow(cell, monitoring, 'https', ['tcp/443'], [], 'yes', conduit=c_mon, decided_by=ot_lead,
+             name='Monitoring agent on the gateway',
+             description='The agent on the protocol gateway sends the fieldbus values it reads to the proxy')
+        flow(monitoring, control, 'snmp', ['udp/161'], ['read'], name='SNMP polling of the control room',
+             comments='Found in the capture: SNMPv2c with the default community; nobody decided on it yet')
+        to_noc = flow(monitoring, noc, 'https', ['tcp/443'], [], 'yes', conduit=c_noc, decided_by=manager,
+                      review_by=today + datetime.timedelta(days=365), name='Monitoring proxy to the NOC',
+                      description='One outbound TLS connection with alarms and metrics; the NOC never connects in')
+        FlowHop.objects.create(flow=to_noc, position=1, device=fw)
 
         tunnel = Tunnel.objects.create(name=f'{PREFIX} MSP IPsec', status='active', encapsulation='ipsec-tunnel')
         for position, hop in enumerate((tunnel, jump, fw), start=1):

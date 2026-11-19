@@ -16,6 +16,11 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
   connections to and from the outside (the firewall rule columns) and, with netbox-access-paths, the access
   paths into the machine. SVG and CSV downloads, print CSS (A3 landscape) with scope, machine version and date,
   REST endpoint `machine-drawing/`. No migration.
+- **Demo plant: monitoring**: `ot_demo` adds a monitoring proxy (`demo-mon-1`) in its own zone *OT monitoring* on
+  its own firewall port, and an external zone *IEC 62443 demo NOC*. The proxy polls the line over SNMP, the line
+  sends traps and the gateway's agent its values to the proxy, and the proxy forwards to the NOC over one outbound
+  HTTPS flow (conduit *Remote monitoring*); SNMP polling of the control room is left undecided as a finding. Line 1's
+  machine drawing shows the monitoring zone with its arrows in and out.
 
 ### Bug Fixes
 

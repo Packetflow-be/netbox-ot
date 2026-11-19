@@ -26,9 +26,9 @@ class DemoCommandTest(TestCase):
     def test_create_and_delete(self):
         call_command('ot_demo', stdout=StringIO())
         site = Site.objects.get(slug='iec62443-demo')
-        self.assertEqual(Zone.objects.count(), 6)
-        self.assertEqual(Conduit.objects.count(), 4)
-        self.assertEqual(Flow.objects.count(), 10)
+        self.assertEqual(Zone.objects.count(), 8)
+        self.assertEqual(Conduit.objects.count(), 6)
+        self.assertEqual(Flow.objects.count(), 15)
         remote = Flow.objects.get(name='MSP maintenance RDP')
         self.assertEqual([str(h.hop) for h in remote.hops.all()],
                          ['IEC 62443 demo MSP IPsec', 'demo-jump-1', 'demo-fw-1'])
@@ -52,7 +52,7 @@ class DemoCommandTest(TestCase):
         from netbox_ot.machine import Scope, build_machine
         from netbox_ot.machinediagram import machine_diagram
 
-        self.assertEqual(Cable.objects.count(), 12)
+        self.assertEqual(Cable.objects.count(), 13)
         sw1 = Device.objects.get(name='demo01be1-sw001')
         self.assertEqual({(i.mode, i.untagged_vlan.vid) for i in sw1.interfaces.all()}, {('access', 101)})
         self.assertEqual(Prefix.objects.get(prefix='10.61.35.0/24').vlan.vid, 135)
@@ -69,6 +69,22 @@ class DemoCommandTest(TestCase):
         self.assertEqual(gateway['primary']['nat'], ['10.61.35.120'])
         self.assertTrue(machine['flows'])
         self.assertEqual(machine_diagram(machine)['frames'], 3)  # no zone, the cell, its safety sub-zone
+        # Monitoring: the proxy in its own zone on its own firewall port, the line's monitoring flows on the drawing
+        # (polled from the proxy, traps and agent data out to it), the NOC reached over one outbound flow
+        proxy = Device.objects.get(name='demo-mon-1')
+        self.assertEqual([z.name for z in proxy.ot_zones.all()], ['OT monitoring'])
+        self.assertEqual([str(i.link_peers[0].device) for i in proxy.interfaces.all()], ['demo-fw-1'])
+        line_monitoring = {(f.source_zone.name, f.destination_zone.name, f.protocol, tuple(f.port_mappings))
+                           for f in machine['flows'] if 'OT monitoring' in (f.source_zone.name,
+                                                                            f.destination_zone.name)}
+        self.assertEqual(line_monitoring, {('OT monitoring', 'Line 1 cell', 'snmp', ('udp/161',)),
+                                           ('Line 1 cell', 'OT monitoring', 'snmp', ('udp/162',)),
+                                           ('Line 1 cell', 'OT monitoring', 'https', ('tcp/443',))})
+        to_noc = Flow.objects.get(name='Monitoring proxy to the NOC')
+        self.assertEqual((to_noc.destination_zone.name, to_noc.allowed, to_noc.conduit.name),
+                         ('IEC 62443 demo NOC', 'yes', 'Remote monitoring'))
+        self.assertFalse(Flow.objects.filter(source_zone__name='IEC 62443 demo NOC').exists())
+        self.assertEqual([str(h.hop) for h in to_noc.hops.all()], ['demo-fw-1'])
         with self.assertRaisesRegex(CommandError, 'already exists'):
             call_command('ot_demo', stdout=StringIO())
 
