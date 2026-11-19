@@ -1,5 +1,7 @@
 # Machine drawing
 
+![The machine drawing tab of the demo plant's Line 1: devices in zone frames by Purdue level, cables with port names, addresses, firmware and the connections to the outside](machine-drawing.png)
+
 One drawing and its tables per machine, for the network part of the technical file under the Machinery
 Regulation (EU) 2023/1230, which applies from 20 January 2027:
 

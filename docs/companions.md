@@ -1,7 +1,7 @@
 # Companion plugins
 
-netbox-ot needs no other plugin. For a full OT asset and lifecycle register it is meant to run beside two
-mature community plugins, which it reads when they are installed and ignores when they are not. Core NetBox
+netbox-ot needs no other plugin. For a full OT asset and lifecycle register it is meant to run beside these
+plugins, which it reads when they are installed and ignores when they are not. Core NetBox
 already holds the asset register itself: devices, modules (a PLC's CPU and I/O cards), serial numbers, sites,
 locations, racks, image attachments and journal entries.
 
@@ -9,15 +9,17 @@ locations, racks, image attachments and journal entries.
 |---|---|---|---|
 | End-of-sale, end-of-support and end-of-security dates; support contracts; licences | [netbox-lifecycle](https://github.com/DanSheps/netbox-lifecycle) | Apache-2.0 | End of support per device in the asset panel and the zone register; checks for devices past or near their end of support in zones with SL-T 2 or more |
 | Spare parts, storage locations, purchases and deliveries | [netbox-inventory](https://github.com/ArnesSI/netbox-inventory) | MIT | Nothing yet: it runs beside netbox-ot (tested together) |
+| Who reaches which system, through which hops, approved and reviewed by whom | [netbox-access-paths](https://github.com/Packetflow-be/netbox-access-paths) | Apache-2.0 | The access paths into a machine in its [machine drawing](machine-drawing.md) (table and CSV) |
 
 ## The tested bundle
 
 CI runs the full test suite beside these versions on every change (job *NetBox latest-4.7 + companion
 plugins*). Install exactly these with this release of netbox-ot:
 
-| netbox-ot | NetBox | netbox-lifecycle | netbox-inventory |
-|---|---|---|---|
-| 0.5.x, 0.4.x, 0.3.x | 4.7 | 1.1.11 | 2.7.1 |
+| netbox-ot | NetBox | netbox-lifecycle | netbox-inventory | netbox-access-paths |
+|---|---|---|---|---|
+| 0.7.x | 4.7 | 1.1.11 | 2.7.1 | 0.2.0 |
+| 0.6.x, 0.5.x, 0.4.x, 0.3.x | 4.7 | 1.1.11 | 2.7.1 | (not tested) |
 
 The pins live in [`.github/ci/companions.txt`](../.github/ci/companions.txt). Newer releases of the
 companions usually work too; the table says what was tested.
@@ -31,14 +33,16 @@ Add the packages to `local_requirements.txt` (or netbox-docker's `plugin_require
 netbox-ot
 netbox-lifecycle==1.1.11
 netbox-inventory==2.7.1
+netbox-access-paths==0.2.0
 ```
 
 ```python
-PLUGINS = ["netbox_ot", "netbox_lifecycle", "netbox_inventory"]
+PLUGINS = ["netbox_ot", "netbox_lifecycle", "netbox_inventory", "netbox_access_paths"]
 PLUGINS_CONFIG = {
     "netbox_ot": {},
     "netbox_lifecycle": {},
     "netbox_inventory": {},
+    "netbox_access_paths": {},
 }
 ```
 

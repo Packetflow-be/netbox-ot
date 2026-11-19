@@ -2,3 +2,4 @@
 # bundle that docs/companions.md recommends; raise them here first, CI then proves the new set.
 netbox-lifecycle==1.1.11
 netbox-inventory==2.7.1
+netbox-access-paths==0.2.0

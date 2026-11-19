@@ -49,6 +49,9 @@ zone register.
   more, linked to NetBox application services. [Industrial systems](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/industrial.md)
 - **Importer** for passive captures: Zeek logs (with or without CISA ICSNPP) or a documented JSON format, with
   a list of the hosts NetBox does not know yet. [Importer](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/importer.md)
+- **Risk assessments** per IEC 62443-3-2 for a zone or conduit: the steps, threat scenarios, unmitigated, residual
+  and tolerable risk on your own risk matrix, a recorded acceptance of a residual risk, and a risk register per
+  site and tenant. [Risk assessments](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/risk-assessments.md)
 - **System requirements** (IEC 62443-3-3) and their status per zone or conduit, for the audit; identifiers ship,
   the texts and levels come from your own copy of the standard.
   [System requirements](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/requirements.md)
@@ -68,6 +71,12 @@ zone register.
   [API](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/api.md)
 
 ## Screenshots
+
+The machine drawing of a production line: its devices in their zones by Purdue level, the cables with port
+names, addresses with their 1:1 NAT, firmware, and every connection that leaves the machine, ready for the
+technical file.
+
+![The machine drawing of Line 1: devices in zone frames by Purdue level, cables with port names, addresses, firmware and the connections to the outside](https://raw.githubusercontent.com/Packetflow-be/netbox-ot/main/docs/machine-drawing.png)
 
 A flow with its verdict: allowed or not, decided by whom, until when, and the path it takes.
 
@@ -108,8 +117,9 @@ other tools wrote; to import from network captures you need [Zeek](https://zeek.
 which bundles both) somewhere, not on the NetBox server.
 
 **Works with** [netbox-lifecycle](https://github.com/DanSheps/netbox-lifecycle) (end of support per device,
-checks for unsupported devices in secure zones) and [netbox-inventory](https://github.com/ArnesSI/netbox-inventory)
-(spares and purchases), tested together in CI; both optional. See
+checks for unsupported devices in secure zones), [netbox-inventory](https://github.com/ArnesSI/netbox-inventory)
+(spares and purchases) and [netbox-access-paths](https://github.com/Packetflow-be/netbox-access-paths) (the
+access paths into a machine in its machine drawing), tested together in CI; all optional. See
 [Companion plugins](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/companions.md).
 
 ## Installation

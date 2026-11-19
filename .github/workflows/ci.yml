@@ -124,7 +124,7 @@ jobs:
         image: redis:7
         ports: ['6379:6379']
     env:
-      CI_PLUGINS: netbox_ot,netbox_lifecycle,netbox_inventory
+      CI_PLUGINS: netbox_ot,netbox_lifecycle,netbox_inventory,netbox_access_paths
     steps:
       - uses: actions/checkout@v4
         with:
