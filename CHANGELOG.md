@@ -3,7 +3,11 @@
 Each release opens with what kind of release it is. Breaking changes are listed under **Breaking Changes**.
 Numbers link to the issue or pull request on GitHub; entries without a number predate the public repository.
 
-## Unreleased
+## 0.7.0 (2026-11-19)
+
+Minor release: the machine drawing for the Machinery Regulation technical file
+([#58](https://github.com/Packetflow-be/netbox-ot/issues/58)), a demo plant with its own cabled network, and a fix
+for the access map's level select. No breaking changes and no migrations.
 
 ### Enhancements
 
@@ -21,6 +25,11 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
   sends traps and the gateway's agent its values to the proxy, and the proxy forwards to the NOC over one outbound
   HTTPS flow (conduit *Remote monitoring*); SNMP polling of the control room is left undecided as a finding. Line 1's
   machine drawing shows the monitoring zone with its arrows in and out.
+
+- **Demo plant** (`manage.py ot_demo`, [#59](https://github.com/Packetflow-be/netbox-ot/pull/59)): the plant comes
+  with its network: a switch per zone inside that zone, the devices cabled to it, location *Line 1* (for the
+  machine drawing tab), a VLAN per zone linked to its prefix with the switch ports as access ports in it, and a
+  1:1 NAT on the protocol gateway.
 
 ### Bug Fixes
 
