@@ -3,6 +3,20 @@
 Each release opens with what kind of release it is. Breaking changes are listed under **Breaking Changes**.
 Numbers link to the issue or pull request on GitHub; entries without a number predate the public repository.
 
+## Unreleased
+
+### Enhancements
+
+- **Machine drawing** ([#58](https://github.com/Packetflow-be/netbox-ot/issues/58)): one drawing per machine for
+  the technical file of the Machinery Regulation (EU) 2023/1230 (Annex IV A (c)(d), Annex III 1.7.4.2 (e)(i) and
+  1.1.9). *OT > Reports > Machine drawing* for a site, location, tags or a mix, and a *Machine drawing* tab on
+  locations. Devices in zone frames by Purdue level, cables routed at right angles with port names, primary
+  address with its 1:1 NAT (`IPAddress.nat_inside`), firmware, the cables and flows that leave the machine
+  (protocol, ports, verdict, remote access). Tables for devices (with modules and their firmware), cables,
+  connections to and from the outside (the firewall rule columns) and, with netbox-access-paths, the access
+  paths into the machine. SVG and CSV downloads, print CSS (A3 landscape) with scope, machine version and date,
+  REST endpoint `machine-drawing/`. No migration.
+
 ## 0.6.0 (2026-11-14)
 
 Minor release: the risk assessment rework ([#46](https://github.com/Packetflow-be/netbox-ot/issues/46)): threat

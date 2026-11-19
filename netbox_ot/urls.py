@@ -27,6 +27,7 @@ urlpatterns = [
     path('risk-scenarios/<int:pk>/', include(get_model_urls('netbox_ot', 'riskscenario'))),
     path('access-map/', views.AccessMapView.as_view(), name='accessmap'),
     path('checks/', views.ChecksView.as_view(), name='checks'),
+    path('machine-drawing/', views.MachineDrawingView.as_view(), name='machine_drawing'),
     path('risk-register/', views.RiskRegisterView.as_view(), name='risk_register'),
     path('settings/', views.PluginSettingsView.as_view(), name='settings'),
 ]

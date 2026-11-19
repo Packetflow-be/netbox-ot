@@ -8,7 +8,7 @@ from django.utils.http import urlencode
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import View
 
-from dcim.models import Site
+from dcim.models import Device, Location, Site
 from extras.ui.panels import CustomFieldsPanel, TagsPanel
 from netbox.ui import actions, attrs, layout, panels
 from netbox.views import generic
@@ -21,6 +21,8 @@ from .branching import branch_names, branching_installed
 from .checks import CHECKS, run_checks, summary
 from .choices import ConnectionChoices, PurdueLevelChoices, RiskAssessmentKindChoices, RiskAssessmentStatusChoices
 from .customfields import get_sl_capability
+from .machine import RULE_LABELS, Scope, build_machine, machine_csv
+from .machinediagram import machine_diagram
 from .models import (
     Conduit,
     Fieldbus,
@@ -1385,6 +1387,102 @@ class SiteOverviewView(generic.ObjectView):
                 ('not-met', _('Not met')), ('open', _('No status')),
             ),
         }
+
+
+#
+# Machine drawing
+#
+
+MACHINE_TABLES = ('devices', 'cables', 'connections', 'access-paths')
+
+
+def machine_scope(user, form, location=None):
+    """The scope the bound form asks for, leaving out a site or location the user may not view."""
+    chosen = form.cleaned_data if form.is_valid() else {}
+    site = chosen.get('site_id')
+    if location is None:
+        location = chosen.get('location_id')
+    if site is not None and not Site.objects.restrict(user, 'view').filter(pk=site.pk).exists():
+        site = None
+    if location is not None and not Location.objects.restrict(user, 'view').filter(pk=location.pk).exists():
+        location = None
+    return Scope(site=site, location=location, tags=chosen.get('tag') or (), version=chosen.get('version', ''))
+
+
+def _machine_export(request, scope):
+    """The SVG or one table as CSV when ?export= asks for it, else None."""
+    export = request.GET.get('export')
+    if not export or not scope:
+        return None
+    machine = build_machine(scope, request.user)
+    if export == 'svg':
+        svg = machine_diagram(machine)['svg']
+        response = HttpResponse('<?xml version="1.0" encoding="UTF-8"?>\n' + svg, content_type='image/svg+xml')
+        response['Content-Disposition'] = f'attachment; filename="{scope.slug}-machine-drawing.svg"'
+        return response
+    if export in MACHINE_TABLES and (export != 'access-paths' or machine['access_paths'] is not None):
+        response = HttpResponse(machine_csv(machine, export), content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="{scope.slug}-machine-{export}.csv"'
+        return response
+    raise Http404
+
+
+def _machine_context(request, scope, form):
+    query = request.GET.copy()
+    query.pop('export', None)
+    context = {'form': form, 'scope': scope, 'machine': None, 'query': query.urlencode(), 'rule_labels': RULE_LABELS}
+    if scope:
+        machine = build_machine(scope, request.user)
+        context['machine'] = machine
+        context['diagram'] = machine_diagram(machine)
+        context['api_query'] = urlencode(
+            [(k, v) for k, v in (('site_id', scope.site.pk if scope.site else ''),
+                                 ('location_id', scope.location.pk if scope.location else ''),
+                                 ('version', scope.version)) if v]
+            + [('tag', t.slug) for t in scope.tags])
+    return context
+
+
+class MachineDrawingView(ContentTypePermissionRequiredMixin, View):
+    """One drawing and its tables per machine (a site, location or tag), for the technical file."""
+
+    def get_required_permission(self):
+        return 'dcim.view_device'
+
+    def get(self, request):
+        form = forms.MachineDrawingFilterForm(request.GET or None)
+        scope = machine_scope(request.user, form)
+        return _machine_export(request, scope) or render(
+            request, 'netbox_ot/machine_drawing.html', _machine_context(request, scope, form))
+
+
+def _location_devices(location):
+    return Device.objects.filter(location__in=location.get_descendants(include_self=True)).count()
+
+
+@register_model_view(Location, name='ot_machine', path='machine-drawing')
+class LocationMachineDrawingView(generic.ObjectView):
+    """The machine drawing of a location (a machine, a cell, a cabinet) and the locations below it."""
+    queryset = Location.objects.all()
+    template_name = 'netbox_ot/location_machine.html'
+    tab = _QuietTab(
+        label=_('Machine drawing'),
+        badge=_location_devices,
+        permission='dcim.view_device',
+        weight=2100,
+        hide_if_empty=True,
+    )
+
+    def get(self, request, **kwargs):
+        if request.GET.get('export'):
+            location = self.get_object(**kwargs)
+            form = forms.MachineDrawingFilterForm(request.GET, location=location)
+            return _machine_export(request, machine_scope(request.user, form, location=location))
+        return super().get(request, **kwargs)
+
+    def get_extra_context(self, request, instance):
+        form = forms.MachineDrawingFilterForm(request.GET or None, location=instance)
+        return _machine_context(request, machine_scope(request.user, form, location=instance), form)
 
 
 #

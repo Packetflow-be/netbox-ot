@@ -11,6 +11,8 @@
 5. [System requirements](requirements.md): IEC 62443-3-3 requirements and their status per zone or conduit,
    loaded from your own copy of the standard.
 6. [Firewall rule export](firewall-rules.md): vendor-neutral rules from the allowed flows.
+   [Machine drawing](machine-drawing.md): one drawing per machine for the technical file of the Machinery
+   Regulation, with its tables.
 7. [Industrial systems and protocols](industrial.md): industrial services and fieldbuses.
 8. [Importer](importer.md): Zeek logs ([zeek.md](zeek.md)) and observation files
    ([import-format.md](import-format.md)).

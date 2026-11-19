@@ -34,6 +34,7 @@ Useful flow filters: `site_id`, `source_zone_id`, `destination_zone_id`, `condui
 | `GET register/?site_id=<id>` | The site's zone and conduit register as JSON ([Register](checks-and-register.md#zone-register)) | `view_zone` |
 | `GET overview/?site_id=<id>[&zone_id=<id>]` | Where the site stands, as numbers: security levels per foundational requirement, requirement statuses, risk and check findings ([OT overview](overview.md)) | `view_zone` |
 | `GET firewall-rules/?site_id=<id>[&device_id=<id>][&include_denied=true]` | Vendor-neutral firewall rules ([Firewall rules](firewall-rules.md)) | `view_flow` |
+| `GET machine-drawing/?site_id=<id>&location_id=<id>&tag=<slug>[&version=<text>]` | One machine: devices (firmware, addresses with NAT, modules), cables, the flows that cross it, their firewall-rule columns, access paths ([Machine drawing](machine-drawing.md)); any mix of site, location and tags | `dcim.view_device` |
 
 ## GraphQL
 
