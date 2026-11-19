@@ -84,7 +84,7 @@ class Command(BranchCommand):
 
     def _delete(self):
         from dcim.models import Cable, Device, DeviceRole, DeviceType, Location, Manufacturer, Site
-        from ipam.models import IPAddress, Prefix, Service
+        from ipam.models import VLAN, IPAddress, Prefix, Service
         from tenancy.models import Contact
         from virtualization.models import VirtualMachine
         from vpn.models import Tunnel
@@ -123,6 +123,7 @@ class Command(BranchCommand):
         Location.objects.filter(site=site).delete()
         IPAddress.objects.filter(description=PREFIX).delete()
         Prefix.objects.filter(description__startswith=PREFIX).delete()
+        VLAN.objects.filter(site=site).delete()  # after the prefixes, which protect them
         if site:
             site.delete()
         Contact.objects.filter(description=PREFIX).delete()
@@ -134,7 +135,7 @@ class Command(BranchCommand):
         from django.contrib.contenttypes.models import ContentType
 
         from dcim.models import Cable, Device, DeviceRole, DeviceType, Interface, Location, Manufacturer, Site
-        from ipam.models import IPAddress, Prefix, Service
+        from ipam.models import VLAN, IPAddress, Prefix, Service
         from tenancy.models import Contact
         from virtualization.models import VirtualMachine, VMInterface
         from vpn.models import Tunnel
@@ -210,9 +211,15 @@ class Command(BranchCommand):
                                      zone_type='enterprise', wireless=True)
         msp = Zone.objects.create(name=f'{PREFIX} MSP', slug='iec62443-demo-msp', zone_type='external',
                                   description='Managed service provider that maintains the SCADA servers')
-        for zone, cidr in ((cell, '10.61.1.0/24'), (control, '10.61.2.0/24'), (dmz, '10.61.35.0/24'),
-                           (office, '10.61.4.0/24')):
-            zone.prefixes.add(prefix(cidr, zone.name))
+        vlans = {}
+        for zone, cidr, vid in ((cell, '10.61.1.0/24', 101), (control, '10.61.2.0/24', 102),
+                                (dmz, '10.61.35.0/24', 135), (office, '10.61.4.0/24', 104)):
+            vlans[zone.pk] = VLAN.objects.create(vid=vid, name=zone.name, site=site, status='active',
+                                                 description=f'{PREFIX} {zone.name}')
+            net = prefix(cidr, zone.name)
+            net.vlan = vlans[zone.pk]
+            net.save()
+            zone.prefixes.add(net)
         msp.prefixes.add(Prefix.objects.create(prefix='192.0.2.0/24', description=f'{PREFIX} MSP'))
 
         # Assets
@@ -245,9 +252,11 @@ class Command(BranchCommand):
         switch_role = DeviceRole.objects.create(name=f'{PREFIX} Switch', slug=SWITCH_ROLE, color='9e9e9e',
                                                 description='Zone switch of the demo plant')
 
-        def port(dev, name, description=''):
-            return Interface.objects.get_or_create(device=dev, name=name, defaults={
-                'type': '1000base-t', 'description': description})[0]
+        def port(dev, name, description='', vlan=None):
+            defaults = {'type': '1000base-t', 'description': description}
+            if vlan is not None:
+                defaults.update(mode='access', untagged_vlan=vlan)
+            return Interface.objects.get_or_create(device=dev, name=name, defaults=defaults)[0]
 
         def cable(label, a, b, color, description):
             Cable(a_terminations=[a], b_terminations=[b], label=label, type='cat6', status='connected',
@@ -258,8 +267,8 @@ class Command(BranchCommand):
         for key, (name, description) in SWITCHES.items():
             sw = Device.objects.create(name=name, site=site, device_type=switch_type, role=switch_role,
                                        description=description, location=line1 if key == 'cell' else None)
-            for n in range(1, 9):
-                port(sw, f'port{n}', 'Uplink to the firewall' if n == 8 else '')
+            for n in range(1, 9):  # access ports in the zone's VLAN
+                port(sw, f'port{n}', 'Uplink to the firewall' if n == 8 else '', vlans[switch_zone[key].pk])
             switch_zone[key].devices.add(sw)
             switches[key] = sw
         by_name = {d.name: d for d in Device.objects.filter(site=site)}

@@ -53,6 +53,9 @@ class DemoCommandTest(TestCase):
         from netbox_ot.machinediagram import machine_diagram
 
         self.assertEqual(Cable.objects.count(), 12)
+        sw1 = Device.objects.get(name='demo01be1-sw001')
+        self.assertEqual({(i.mode, i.untagged_vlan.vid) for i in sw1.interfaces.all()}, {('access', 101)})
+        self.assertEqual(Prefix.objects.get(prefix='10.61.35.0/24').vlan.vid, 135)
         for name, zone in (('demo01be1-sw001', 'Line 1 cell'), ('demo01be1-sw002', 'Control room'),
                            ('demo01be1-sw003', 'OT DMZ'), ('demo01be1-sw004', 'Office')):
             self.assertEqual([z.name for z in Device.objects.get(name=name).ot_zones.all()], [zone])
@@ -76,6 +79,8 @@ class DemoCommandTest(TestCase):
         self.assertFalse(Device.objects.filter(name__startswith='demo').exists())
         self.assertFalse(Cable.objects.exists())
         self.assertFalse(Location.objects.filter(slug='line-1').exists())
+        from ipam.models import VLAN
+        self.assertFalse(VLAN.objects.filter(description__startswith='IEC 62443 demo').exists())
         self.assertFalse(IPAddress.objects.filter(description='IEC 62443 demo').exists())
         self.assertFalse(Prefix.objects.filter(description__startswith='IEC 62443 demo').exists())
         self.assertFalse(Contact.objects.filter(description='IEC 62443 demo').exists())
