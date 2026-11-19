@@ -3,7 +3,11 @@
 Each release opens with what kind of release it is. Breaking changes are listed under **Breaking Changes**.
 Numbers link to the issue or pull request on GitHub; entries without a number predate the public repository.
 
-## Unreleased
+## 0.7.0 (2026-11-19)
+
+Minor release: the machine drawing for the Machinery Regulation technical file
+([#58](https://github.com/Packetflow-be/netbox-ot/issues/58)), a demo plant with its own cabled network, and a fix
+for the access map's level select. No breaking changes and no migrations.
 
 ### Enhancements
 
@@ -16,6 +20,11 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
   connections to and from the outside (the firewall rule columns) and, with netbox-access-paths, the access
   paths into the machine. SVG and CSV downloads, print CSS (A3 landscape) with scope, machine version and date,
   REST endpoint `machine-drawing/`. No migration.
+
+- **Demo plant** (`manage.py ot_demo`, [#59](https://github.com/Packetflow-be/netbox-ot/pull/59)): the plant comes
+  with its network: a switch per zone inside that zone, the devices cabled to it, location *Line 1* (for the
+  machine drawing tab), a VLAN per zone linked to its prefix with the switch ports as access ports in it, and a
+  1:1 NAT on the protocol gateway.
 
 ### Bug Fixes
 
