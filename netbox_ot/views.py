@@ -47,6 +47,19 @@ def _default_max_level():
     return str(settings.PLUGINS_CONFIG.get('netbox_ot', {}).get('access_map_max_level', '2'))
 
 
+def _access_map_form(request, **kwargs):
+    """
+    The access map's filter form. A request with other parameters (a site, a sort) but no level is bound without
+    one, so the level select would show its first choice while the map uses the default level: fill it in.
+    """
+    data = None
+    if request.GET:
+        data = request.GET.copy()
+        if not data.get('max_level'):
+            data['max_level'] = _default_max_level()
+    return forms.AccessMapFilterForm(data, initial={'max_level': _default_max_level()}, **kwargs)
+
+
 def _ids_or_none(queryset):
     # An empty id list would mean "no filter" (all objects); [0] matches nothing.
     return list(queryset.values_list('pk', flat=True)) or [0]
@@ -1179,7 +1192,7 @@ class AccessMapView(ContentTypePermissionRequiredMixin, View):
         return 'netbox_ot.view_flow'
 
     def get(self, request):
-        form = forms.AccessMapFilterForm(request.GET or None, initial={'max_level': _default_max_level()})
+        form = _access_map_form(request)
         site = form.cleaned_data.get('site_id') if form.is_valid() else None
         if site is not None and not Site.objects.restrict(request.user, 'view').filter(pk=site.pk).exists():
             site = None
@@ -1210,8 +1223,7 @@ class SiteAccessMapView(generic.ObjectView):
     )
 
     def get_extra_context(self, request, instance):
-        form = forms.AccessMapFilterForm(request.GET or None, initial={'max_level': _default_max_level()},
-                                         site=instance)
+        form = _access_map_form(request, site=instance)
         return _access_map_context(request, instance, form)
 
 
