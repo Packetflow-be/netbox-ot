@@ -3,6 +3,20 @@
 Each release opens with what kind of release it is. Breaking changes are listed under **Breaking Changes**.
 Numbers link to the issue or pull request on GitHub; entries without a number predate the public repository.
 
+## 0.7.2 (2026-11-19)
+
+Patch release: documentation only, so the PyPI page shows it. No code changes, no migrations.
+
+### Documentation
+
+- Screenshots of 0.7.1 from the screenshot run, and a new one of the **machine drawing** in the README and in
+  [docs/machine-drawing.md](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/machine-drawing.md)
+  ([#65](https://github.com/Packetflow-be/netbox-ot/pull/65)).
+- README: risk assessments in the features; netbox-access-paths under *Works with*.
+- **netbox-access-paths 0.2.0 joins the tested bundle**: the CI job *NetBox latest-4.7 + companion plugins* now runs
+  the full suite beside it; [docs/companions.md](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/companions.md)
+  lists what netbox-ot reads from it (the access paths into a machine) and the tested versions.
+
 ## 0.7.1 (2026-11-19)
 
 Patch release: the demo plant gets a monitoring proxy and an external NOC. No code changes outside `ot_demo`,
