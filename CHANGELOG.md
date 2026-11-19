@@ -17,6 +17,16 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
   paths into the machine. SVG and CSV downloads, print CSS (A3 landscape) with scope, machine version and date,
   REST endpoint `machine-drawing/`. No migration.
 
+### Bug Fixes
+
+- **Access map level select**: with other parameters in the address (a site, a sort) but no level, the
+  *Into zones at Purdue level up to* select showed *0 - Process* while the map used the default level (2). It
+  now shows the level in use.
+
+### Documentation
+
+- README: link to the public demo at [netbox-ot.packetflow.be](https://netbox-ot.packetflow.be).
+
 ## 0.6.0 (2026-11-14)
 
 Minor release: the risk assessment rework ([#46](https://github.com/Packetflow-be/netbox-ot/issues/46)): threat

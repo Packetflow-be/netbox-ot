@@ -136,6 +136,17 @@ class AccessMapPageTest(AccessMapPlant):
         self.assertHttpStatus(response, 200)
 
     @override_settings(EXEMPT_VIEW_PERMISSIONS=[])
+    def test_level_select_shows_the_level_in_use(self):
+        # Other parameters without a level: the select shows the default level the map uses, not its first choice
+        for url in (reverse('dcim:site_ot_accessmap', kwargs={'pk': self.site.pk}) + '?sort=name',
+                    reverse('plugins:netbox_ot:accessmap') + f'?site_id={self.site.pk}'):
+            response = self.client.get(url)
+            self.assertHttpStatus(response, 200)
+            self.assertEqual(response.context['max_level'], '2')
+            self.assertEqual(response.context['form']['max_level'].value(), '2')
+            self.assertRegex(response.content.decode(), r'<option value="2"\s+selected')
+
+    @override_settings(EXEMPT_VIEW_PERMISSIONS=[])
     def test_no_diagram_for_all_sites(self):
         response = self.client.get(reverse('plugins:netbox_ot:accessmap') + '?max_level=5')
         self.assertHttpStatus(response, 200)
