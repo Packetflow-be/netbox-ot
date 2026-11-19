@@ -33,6 +33,7 @@ SHOTS = [
     ('checks', f'/plugins/ot/checks/?site_id={site}', None, 1250),
     ('industrial-services', '/plugins/ot/industrial-services/', None, 1000),
     ('risk-assessment', urls['risk_assessment'], None, 1150),
+    ('machine-drawing', f"/dcim/locations/{urls['line1']}/machine-drawing/", '.md-card:has(.md-wrap)', None),
 ]
 
 with sync_playwright() as pw:
