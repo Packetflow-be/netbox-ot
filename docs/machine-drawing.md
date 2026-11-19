@@ -38,7 +38,8 @@ with remote access marked. It is built from what NetBox already holds: there is 
 ## The drawing
 
 - **Frames**: one per zone, from the highest Purdue level at the top to the lowest at the bottom, with the
-  zone's level, type and SL-T in the title. Devices without a zone are in a dashed frame at the bottom.
+  zone's level, type and SL-T in the title. Devices without a zone are in a dashed frame at the top: usually IT equipment, and a
+  finding to resolve.
 - **Devices**: name, manufacturer and model, primary address (`inside ⇄ outside` when NATed), firmware; the
   stripe on the left has the colour of the device role. In each frame the most-cabled device (the switch)
   comes first.

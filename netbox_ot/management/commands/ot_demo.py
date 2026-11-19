@@ -1,8 +1,9 @@
 """
 Demo data: a small fictional plant with zones, conduits, flows, services and risk assessments, so a new user sees
-a populated access map, zone register and consistency checks within minutes. Everything it creates belongs to
-the demo site (and the demo MSP zone, contacts, tenant group, VPN tunnel and roles named "IEC 62443 demo ..."),
-and --delete removes exactly that.
+a populated access map, zone register and consistency checks within minutes. The plant is cabled (a switch per
+zone, each on its own firewall port) and line 1 is a location, so the machine drawing has a machine to draw.
+Everything it creates belongs to the demo site (and the demo MSP zone, contacts, tenant group, VPN tunnel and
+roles named "IEC 62443 demo ..."), and --delete removes exactly that.
 """
 import datetime
 
@@ -14,6 +15,25 @@ from netbox_ot.branching import BranchCommand, change_logging, changelog_user
 
 SITE_SLUG = 'iec62443-demo'
 PREFIX = 'IEC 62443 demo'
+
+# The cabled control network: the zone switches (key: name, description), the plant devices on them, a colour per
+# zone. Kept equal to infra's scripts/netbox-demo-populate.py.
+SWITCH_ROLE = 'iec62443-demo-switch'
+SWITCHES = {'cell': ('demo01be1-sw001', 'Line 1 cell switch'),
+            'control': ('demo01be1-sw002', 'Control room switch'),
+            'dmz': ('demo01be1-sw003', 'OT DMZ switch'),
+            'office': ('demo01be1-sw004', 'Office switch')}
+ZONE_COLORS = {'cell': 'ff9800', 'control': '2196f3', 'dmz': '9c27b0', 'office': '9e9e9e', 'safety': 'ffeb3b'}
+CABLES = (  # label, plant device (its eth0), switch, port, description
+    ('PLC 1 - Line 1 cell switch', 'demo-plc-1', 'cell', 1, 'Line 1 PLC'),
+    ('PLC 2 - Line 1 cell switch', 'demo-plc-2', 'cell', 2, 'Line 1 PLC'),
+    ('Gateway - Line 1 cell switch', 'demo-gw-1', 'cell', 3, 'Protocol gateway of the cell'),
+    ('Camera - Line 1 cell switch', 'demo-unzoned-camera', 'cell', 4,
+     'IP camera on the cell network, in no zone: a finding'),
+    ('HMI - Control room switch', 'demo-hmi-1', 'control', 1, 'Operator panel'),
+    ('Engineering station - Control room switch', 'demo-es-1', 'control', 2, 'PLC programming station'),
+    ('Office laptop - Office switch', 'demo-office-laptop', 'office', 1, 'Office network'),
+)
 
 
 class Command(BranchCommand):
@@ -59,11 +79,11 @@ class Command(BranchCommand):
         with transaction.atomic(using=self.db_alias), change_logging(user):
             site = self._create()
         self.stdout.write(self.style.SUCCESS(
-            f'Demo plant created: open the site "{site}" and its Access map and Zone register tabs, or '
-            f'IEC 62443 > Consistency checks'))
+            f'Demo plant created: open the site "{site}" and its Access map and Zone register tabs, the Machine '
+            f'drawing tab of its location "Line 1", or OT > Consistency checks'))
 
     def _delete(self):
-        from dcim.models import Device, DeviceRole, DeviceType, Manufacturer, Site
+        from dcim.models import Cable, Device, DeviceRole, DeviceType, Location, Manufacturer, Site
         from ipam.models import IPAddress, Prefix, Service
         from tenancy.models import Contact
         from virtualization.models import VirtualMachine
@@ -97,8 +117,10 @@ class Command(BranchCommand):
             Service.objects.filter(parent_object_id=asset.pk, parent_object_type__model=asset._meta.model_name).delete()
         zones.delete()
         Tunnel.objects.filter(name=f'{PREFIX} MSP IPsec').delete()
+        Cable.objects.filter(terminations___device__in=devices).distinct().delete()
         for asset in list(vms) + list(devices):
             asset.delete()
+        Location.objects.filter(site=site).delete()
         IPAddress.objects.filter(description=PREFIX).delete()
         Prefix.objects.filter(description__startswith=PREFIX).delete()
         if site:
@@ -111,7 +133,7 @@ class Command(BranchCommand):
     def _create(self):
         from django.contrib.contenttypes.models import ContentType
 
-        from dcim.models import Device, DeviceRole, DeviceType, Interface, Manufacturer, Site
+        from dcim.models import Cable, Device, DeviceRole, DeviceType, Interface, Location, Manufacturer, Site
         from ipam.models import IPAddress, Prefix, Service
         from tenancy.models import Contact
         from virtualization.models import VirtualMachine, VMInterface
@@ -153,10 +175,13 @@ class Command(BranchCommand):
         def prefix(cidr, label):
             return Prefix.objects.create(prefix=cidr, scope=site, description=f'{PREFIX} {label}')
 
-        def device(name, kind, role, ip, level, firmware=None):
+        line1 = Location.objects.create(name='Line 1', slug='line-1', site=site,
+                                        description='Production line 1: one machine, for the machine drawing')
+
+        def device(name, kind, role, ip, level, firmware=None, location=None):
             d = Device.objects.create(name=name, site=site, device_type=types[kind], role=roles[role],
-                                      custom_field_data={PURDUE_CF_NAME: level or None,
-                                                         FIRMWARE_CF_NAME: firmware})
+                                      location=location, custom_field_data={PURDUE_CF_NAME: level or None,
+                                                                            FIRMWARE_CF_NAME: firmware})
             iface = Interface.objects.create(device=d, name='eth0', type='1000base-t')
             d.primary_ip4 = IPAddress.objects.create(address=f'{ip}/24', assigned_object=iface,
                                                      description=PREFIX)
@@ -191,23 +216,64 @@ class Command(BranchCommand):
         msp.prefixes.add(Prefix.objects.create(prefix='192.0.2.0/24', description=f'{PREFIX} MSP'))
 
         # Assets
-        plc1 = device('demo-plc-1', 'plc', 'PLC', '10.61.1.10', '1', 'V2.8.3')
-        plc2 = device('demo-plc-2', 'plc', 'PLC', '10.61.1.11', '1', 'V2.6.0')  # one release behind
-        sis_plc = device('demo-sis-1', 'plc', 'PLC', '10.61.1.50', '1', 'V2.8.3')
-        gw = device('demo-gw-1', 'box', 'Gateway', '10.61.1.20', '1', '3.2.1')
+        plc1 = device('demo-plc-1', 'plc', 'PLC', '10.61.1.10', '1', 'V2.8.3', line1)
+        plc2 = device('demo-plc-2', 'plc', 'PLC', '10.61.1.11', '1', 'V2.6.0', line1)  # one release behind
+        sis_plc = device('demo-sis-1', 'plc', 'PLC', '10.61.1.50', '1', 'V2.8.3', line1)
+        gw = device('demo-gw-1', 'box', 'Gateway', '10.61.1.20', '1', '3.2.1', line1)
         hmi = device('demo-hmi-1', 'hmi', 'HMI', '10.61.2.10', '2', 'V15.1')
         es = device('demo-es-1', 'box', 'Laptop', '10.61.2.20', '2')
         fw = device('demo-fw-1', 'fw', 'Firewall', '10.61.35.1', '3.5', '7.4.2')
         historian = vm('demo-historian', '10.61.35.10', '3.5')
         jump = vm('demo-jump-1', '10.61.35.20', '3.5')
         laptop = device('demo-office-laptop', 'box', 'Laptop', '10.61.4.30', '4')
-        device('demo-unzoned-camera', 'box', 'Gateway', '10.61.1.99', '')  # found by a capture, in no zone
+        device('demo-unzoned-camera', 'box', 'Gateway', '10.61.1.99', '', location=line1)  # seen, in no zone
         cell.devices.add(plc1, plc2, gw)
         sis.devices.add(sis_plc)
         control.devices.add(hmi, es)
         dmz.devices.add(fw)
         dmz.virtual_machines.add(historian, jump)
         office.devices.add(laptop)
+        # The historian reads the gateway through a 1:1 NAT on the firewall (NetBox's own NAT inside/outside)
+        IPAddress.objects.create(address='10.61.35.120/24', nat_inside=gw.primary_ip4, description=PREFIX)
+
+        # Cabling: a switch per zone, each on its own firewall port, the safety PLC on a point-to-point link to
+        # PLC 1. The names, slugs and labels are those of infra's netbox-demo-populate.py, which adds the same
+        # network to an older demo and finds these when they are there.
+        switch_type = DeviceType.objects.create(manufacturer=maker, model='Demo managed switch',
+                                                slug=SWITCH_ROLE, u_height=0,
+                                                description='8-port managed DIN-rail switch')
+        switch_role = DeviceRole.objects.create(name=f'{PREFIX} Switch', slug=SWITCH_ROLE, color='9e9e9e',
+                                                description='Zone switch of the demo plant')
+
+        def port(dev, name, description=''):
+            return Interface.objects.get_or_create(device=dev, name=name, defaults={
+                'type': '1000base-t', 'description': description})[0]
+
+        def cable(label, a, b, color, description):
+            Cable(a_terminations=[a], b_terminations=[b], label=label, type='cat6', status='connected',
+                  color=color, description=description).save()
+
+        switch_zone = {'cell': cell, 'control': control, 'dmz': dmz, 'office': office}
+        switches = {}
+        for key, (name, description) in SWITCHES.items():
+            sw = Device.objects.create(name=name, site=site, device_type=switch_type, role=switch_role,
+                                       description=description, location=line1 if key == 'cell' else None)
+            for n in range(1, 9):
+                port(sw, f'port{n}', 'Uplink to the firewall' if n == 8 else '')
+            switch_zone[key].devices.add(sw)
+            switches[key] = sw
+        by_name = {d.name: d for d in Device.objects.filter(site=site)}
+        for label, name, key, n, description in CABLES:
+            cable(label, port(by_name[name], 'eth0'), port(switches[key], f'port{n}'), ZONE_COLORS[key], description)
+        for n, key in ((1, 'cell'), (2, 'control'), (3, 'office')):
+            title = SWITCHES[key][1]
+            cable(f'Firewall - {title}', port(fw, f'eth{n}', f'To the {title.lower()}'),
+                  port(switches[key], 'port8'), ZONE_COLORS[key],
+                  f'Conduit through the firewall to the {title.lower()}')
+        cable('Firewall - OT DMZ switch', port(fw, 'eth0'), port(switches['dmz'], 'port8'), ZONE_COLORS['dmz'],
+              'Firewall DMZ port; the historian and the jump host are VMs on this segment')
+        cable('Safety PLC - PLC 1', port(sis_plc, 'eth0'), port(plc1, 'eth1', 'Dedicated link to the safety PLC'),
+              ZONE_COLORS['safety'], 'Safety PLC on its own segment: a point-to-point link to PLC 1 only')
 
         # Conduits
         c_control = Conduit.objects.create(name='Control room - Line 1', site=site, sl_target=[2] * 7,

@@ -2,7 +2,7 @@
 The machine drawing as a server-rendered SVG, so it prints, downloads and works without JavaScript.
 
   frames        one per zone, stacked top to bottom from the highest Purdue level down; devices without a zone go
-                in a dashed frame at the bottom. All frames share one column grid.
+                in a dashed frame at the top, as they are usually IT equipment. All frames share one column grid.
   devices       in each frame the most-cabled first (the switch), then by name; the box shows name, model, primary
                 address (with its 1:1 NAT address), firmware, and the role's colour as a stripe.
   cables        drawn orthogonally through the gaps between the rows and the columns, never behind a box; every
@@ -80,7 +80,7 @@ class _Lanes:
 
 
 def _frames(devices):
-    """[(zone or None, [device rows])], from the highest Purdue level down, devices without a zone last."""
+    """[(zone or None, [device rows])]: devices without a zone first, then from the highest Purdue level down."""
     by_zone = defaultdict(list)
     zones = {}
     for d in devices:
@@ -91,7 +91,7 @@ def _frames(devices):
     def order(key):
         zone = zones[key]
         if zone is None:
-            return (2, 0, '')
+            return (-1, 0, '')
         return (0 if zone.purdue_level else 1, -_level_key(zone), zone.name)
 
     return [(zones[k], by_zone[k]) for k in sorted(by_zone, key=order)]

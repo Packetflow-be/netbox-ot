@@ -46,6 +46,26 @@ class DemoCommandTest(TestCase):
         self.assertTrue({'expired-access', 'residual-above-tolerable', 'asset-without-zone', 'sl-gap',
                          'capability-below-target', 'flow-without-conduit'} <= found)
         self.assertNotIn('asset-below-zone-level', found)
+        # The cabled network: a switch per zone (in its zone), line 1 as a location, a NATed gateway
+        from dcim.models import Cable, Location
+
+        from netbox_ot.machine import Scope, build_machine
+        from netbox_ot.machinediagram import machine_diagram
+
+        self.assertEqual(Cable.objects.count(), 12)
+        for name, zone in (('demo01be1-sw001', 'Line 1 cell'), ('demo01be1-sw002', 'Control room'),
+                           ('demo01be1-sw003', 'OT DMZ'), ('demo01be1-sw004', 'Office')):
+            self.assertEqual([z.name for z in Device.objects.get(name=name).ot_zones.all()], [zone])
+        line1 = Location.objects.get(site=site, slug='line-1')
+        from django.contrib.auth import get_user_model
+        admin = get_user_model().objects.create_superuser('demo-admin', 'demo@example.invalid', 'x')
+        machine = build_machine(Scope(location=line1), admin)
+        self.assertEqual(len(machine['devices']), 6)
+        self.assertEqual([c['b']['name'] for c in machine['cables'] if c['leaves']], ['demo-fw-1'])
+        gateway = next(d for d in machine['devices'] if d['name'] == 'demo-gw-1')
+        self.assertEqual(gateway['primary']['nat'], ['10.61.35.120'])
+        self.assertTrue(machine['flows'])
+        self.assertEqual(machine_diagram(machine)['frames'], 3)  # no zone, the cell, its safety sub-zone
         with self.assertRaisesRegex(CommandError, 'already exists'):
             call_command('ot_demo', stdout=StringIO())
 
@@ -53,7 +73,9 @@ class DemoCommandTest(TestCase):
         self.assertFalse(Site.objects.filter(slug='iec62443-demo').exists())
         for model in (Zone, Conduit, Flow, FlowHop, IndustrialService, RiskAssessment):
             self.assertEqual(model.objects.count(), 0, model)
-        self.assertFalse(Device.objects.filter(name__startswith='demo-').exists())
+        self.assertFalse(Device.objects.filter(name__startswith='demo').exists())
+        self.assertFalse(Cable.objects.exists())
+        self.assertFalse(Location.objects.filter(slug='line-1').exists())
         self.assertFalse(IPAddress.objects.filter(description='IEC 62443 demo').exists())
         self.assertFalse(Prefix.objects.filter(description__startswith='IEC 62443 demo').exists())
         self.assertFalse(Contact.objects.filter(description='IEC 62443 demo').exists())

@@ -259,7 +259,9 @@ class MachineDiagramTest(MachinePlant):
                                   location=self.plant['machine'])
         d = machine_diagram(self.machine(location=self.plant['machine']))
         self.assertEqual(d['frames'], 4)
-        self.assertIn('Not in a zone', str(d['svg']))
+        svg = str(d['svg'])
+        # Devices without a zone (usually IT equipment) on top, then the zones from the highest level down
+        self.assertLess(svg.index('Not in a zone'), svg.index('M3200 remote'))
 
 
 class MachineExportTest(MachinePlant):
