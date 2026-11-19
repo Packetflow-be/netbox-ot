@@ -74,6 +74,10 @@ groups = (
             permissions=['netbox_ot.view_flow'],
         ),
         PluginMenuItem(
+            link='plugins:netbox_ot:machine_drawing', link_text=_('Machine drawing'),
+            permissions=['dcim.view_device'],
+        ),
+        PluginMenuItem(
             link='plugins:netbox_ot:checks', link_text=_('Consistency checks'),
             permissions=['netbox_ot.view_zone'],
         ),

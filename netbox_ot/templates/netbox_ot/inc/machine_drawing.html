@@ -1,0 +1,195 @@
+{% load i18n helpers %}
+{# The machine drawing: filter form, drawing and tables. Everything is a GET parameter, so a drawing is a link. #}
+<style>
+  .md-wrap { overflow: auto; }
+  .md-wrap svg { width: 100%; height: auto; }
+  @media (max-width: 991px) { .md-wrap svg { width: auto; max-width: none !important; } }
+  .md-rules td { white-space: nowrap; }
+  .md-rules td:last-child { white-space: normal; min-width: 22em; }
+  .md-print-head { display: none; }
+  .md-table td, .md-table th { vertical-align: top; }
+  @media print {
+    @page { size: A3 landscape; margin: 10mm; }
+    .md-print-head { display: block; }
+    .md-wrap { overflow: visible; }
+    .md-card { break-inside: avoid; }
+    .md-table { font-size: 9pt; }
+    .md-map { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+
+<div class="card d-print-none">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      {% if form.site_id %}
+        <div class="col-md-3">
+          <label class="form-label" for="{{ form.site_id.id_for_label }}">{{ form.site_id.label }}</label>
+          {{ form.site_id }}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="{{ form.location_id.id_for_label }}">{{ form.location_id.label }}</label>
+          {{ form.location_id }}
+        </div>
+      {% endif %}
+      <div class="col-md-3">
+        <label class="form-label" for="{{ form.tag.id_for_label }}">{{ form.tag.label }}</label>
+        {{ form.tag }}
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="{{ form.version.id_for_label }}">{{ form.version.label }}</label>
+        {{ form.version }}
+      </div>
+      <div class="col-md-12 d-flex flex-wrap gap-2">
+        <button type="submit" class="btn btn-primary text-nowrap"><i class="mdi mdi-check"></i> {% trans "Draw" %}</button>
+        <a href="?" class="btn btn-outline-secondary text-nowrap">{% trans "Reset" %}</a>
+        <span class="text-secondary small align-self-center">{% trans "All filters apply together. A tag scope is the usual way to draw one machine of a line." %}</span>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if not machine %}
+  <div class="card">
+    <div class="card-body text-secondary">
+      {% trans "Choose a site, a location or one or more tags: the devices there, the zones they are in, their cables and every flow that leaves or enters them make one drawing for the technical file." %}
+    </div>
+  </div>
+{% else %}
+  <div class="mb-3 d-print-none d-flex flex-wrap gap-1">
+    <a href="?{{ query }}&amp;export=svg" class="btn btn-sm btn-outline-primary"><i class="mdi mdi-download"></i> {% trans "Drawing (SVG)" %}</a>
+    <a href="?{{ query }}&amp;export=devices" class="btn btn-sm btn-outline-primary"><i class="mdi mdi-download"></i> {% trans "Devices (CSV)" %}</a>
+    <a href="?{{ query }}&amp;export=cables" class="btn btn-sm btn-outline-primary"><i class="mdi mdi-download"></i> {% trans "Cables (CSV)" %}</a>
+    <a href="?{{ query }}&amp;export=connections" class="btn btn-sm btn-outline-primary"><i class="mdi mdi-download"></i> {% trans "Connections (CSV)" %}</a>
+    {% if machine.access_paths is not None %}<a href="?{{ query }}&amp;export=access-paths" class="btn btn-sm btn-outline-primary"><i class="mdi mdi-download"></i> {% trans "Access paths (CSV)" %}</a>{% endif %}
+    <a href="{% url 'plugins-api:netbox_ot-api:machine_drawing' %}?{{ api_query }}" class="btn btn-sm btn-outline-secondary"><i class="mdi mdi-code-json"></i> JSON</a>
+    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="mdi mdi-printer"></i> {% trans "Print" %}</button>
+  </div>
+
+  <div class="card md-card">
+    <div class="card-body">
+      <h2 class="md-print-head h3 mb-1">{% trans "Machine drawing" %}</h2>
+      <div><strong>{{ scope.label }}</strong>{% if scope.version %} · {% trans "version" %} {{ scope.version }}{% endif %}</div>
+      <div class="small text-secondary">
+        {% blocktrans with generated=machine.generated|date:"Y-m-d H:i" version=machine.version devices=diagram.devices cables=machine.cables|length flows=machine.flows|length %}Generated {{ generated }} from NetBox by netbox-ot {{ version }}: {{ devices }} devices, {{ cables }} cables, {{ flows }} flows to or from the outside.{% endblocktrans %}
+      </div>
+    </div>
+  </div>
+
+  {% if not machine.devices %}
+    <div class="card"><div class="card-body text-secondary">{% trans "No devices you can view in this scope." %}</div></div>
+  {% else %}
+    <div class="card md-card">
+      <h2 class="card-header">{% trans "Drawing" %}</h2>
+      <div class="card-body md-wrap">{{ diagram.svg }}</div>
+    </div>
+
+    <div class="card md-card">
+      <h2 class="card-header">{% trans "Devices" %} <span class="badge text-bg-secondary ms-1">{{ machine.devices|length }}</span></h2>
+      <div class="table-responsive">
+        <table class="table table-hover table-sm md-table">
+          <thead><tr>
+            <th>{% trans "Device" %}</th><th>{% trans "Role" %}</th><th>{% trans "Manufacturer" %}</th><th>{% trans "Model" %}</th>
+            <th>{% trans "Serial" %}</th><th>{% trans "Zone" %}</th><th>{% trans "Firmware" %}</th>
+            <th>{% trans "Addresses (NAT)" %}</th><th>{% trans "Modules" %}</th>
+          </tr></thead>
+          <tbody>
+            {% for d in machine.devices %}
+              <tr>
+                <td><a href="{{ d.url }}">{{ d.name }}</a></td>
+                <td>{{ d.role|placeholder }}</td><td>{{ d.manufacturer }}</td><td>{{ d.model }}</td>
+                <td>{{ d.serial|placeholder }}</td>
+                <td>{% if d.zone %}<a href="{{ d.zone.get_absolute_url }}">{{ d.zone }}</a>{% for z in d.other_zones %}<br><span class="small text-secondary">{% trans "also" %} {{ z }}</span>{% endfor %}{% else %}{{ ''|placeholder }}{% endif %}</td>
+                <td>{{ d.firmware|placeholder }}</td>
+                <td class="small text-nowrap">
+                  {% for a in d.addresses %}{{ a.interface }} {{ a.address }}{% if a.nat %} &#8644; {{ a.nat|join:", " }}{% endif %}{% if not forloop.last %}<br>{% endif %}{% empty %}{{ ''|placeholder }}{% endfor %}
+                </td>
+                <td class="small">
+                  {% for m in d.modules %}{% if m.bay %}{{ m.bay }}: {% endif %}{{ m.model }}{% if m.serial %}, S/N {{ m.serial }}{% endif %}{% if m.firmware %}, FW {{ m.firmware }}{% endif %}{% if not forloop.last %}<br>{% endif %}{% empty %}{{ ''|placeholder }}{% endfor %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card md-card">
+      <h2 class="card-header">{% trans "Cables" %} <span class="badge text-bg-secondary ms-1">{{ machine.cables|length }}</span></h2>
+      {% if machine.cables %}
+        <div class="table-responsive">
+          <table class="table table-hover table-sm md-table">
+            <thead><tr>
+              <th>{% trans "Cable" %}</th><th>{% trans "Device" %}</th><th>{% trans "Port" %}</th><th>{% trans "Other end" %}</th><th>{% trans "Port" %}</th>
+              <th>{% trans "Type" %}</th><th>{% trans "Status" %}</th><th>{% trans "Leaves the machine" %}</th>
+            </tr></thead>
+            <tbody>
+              {% for c in machine.cables %}
+                <tr>
+                  <td>{% if c.color %}<span class="d-inline-block rounded me-1" style="width:.7em;height:.7em;background:#{{ c.color }}"></span>{% endif %}<a href="{{ c.url }}">{{ c.label }}</a></td>
+                  <td>{{ c.a.name }}</td><td>{{ c.a.ports|placeholder }}</td>
+                  <td>{% if c.b.url %}<a href="{{ c.b.url }}">{{ c.b.name }}</a>{% else %}{{ c.b.name }}{% endif %}</td><td>{{ c.b.ports|placeholder }}</td>
+                  <td>{{ c.type|placeholder }}</td><td>{{ c.status }}</td>
+                  <td>{% if c.leaves %}<span class="badge text-bg-warning">{% trans "Yes" %}</span>{% else %}{% trans "No" %}{% endif %}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="card-body text-secondary">{% trans "No cables on the devices in scope." %}</div>
+      {% endif %}
+    </div>
+
+    <div class="card md-card">
+      <h2 class="card-header">{% trans "Connections to and from the outside" %} <span class="badge text-bg-secondary ms-1">{{ machine.rules|length }}</span></h2>
+      {% if machine.rules %}
+        <div class="table-responsive">
+          <table class="table table-hover table-sm md-table md-rules small">
+            <thead><tr>{% for label in rule_labels %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+            <tbody>
+              {% for rule in machine.rules %}
+                <tr class="{% if rule.action == 'deny' %}text-danger{% endif %}">{% for value in rule.values %}<td>{{ value|placeholder }}</td>{% endfor %}</tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="card-body text-secondary">{% trans "No flow with a verdict leaves or enters the zones of these devices." %}</div>
+      {% endif %}
+      {% if machine.not_exported %}
+        <div class="card-footer small text-secondary">
+          {% trans "Not listed:" %} {% for reason, count in machine.not_exported.items %}{{ count }} {{ reason }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+          {% trans "A flow without a verdict needs a decision first: it is drawn in amber." %}
+        </div>
+      {% endif %}
+    </div>
+
+    {% if machine.access_paths is not None %}
+      <div class="card md-card">
+        <h2 class="card-header">{% trans "Access paths into the machine" %} <span class="badge text-bg-secondary ms-1">{{ machine.access_paths|length }}</span></h2>
+        {% if machine.access_paths %}
+          <div class="table-responsive">
+            <table class="table table-hover table-sm md-table">
+              <thead><tr>
+                <th>{% trans "Access path" %}</th><th>{% trans "Route" %}</th><th>{% trans "Origin" %}</th><th>{% trans "Method" %}</th>
+                <th>{% trans "Target" %}</th><th>{% trans "Authentication" %}</th><th>{% trans "Status" %}</th>
+                <th>{% trans "Approved by" %}</th><th>{% trans "Expires" %}</th>
+              </tr></thead>
+              <tbody>
+                {% for p in machine.access_paths %}
+                  <tr>
+                    <td><a href="{{ p.url }}">{{ p.path }}</a></td><td>{{ p.route }}</td><td>{{ p.origin }}</td><td>{{ p.method }}</td>
+                    <td>{{ p.target|placeholder }}</td><td>{{ p.authentication }}</td><td>{{ p.status }}</td>
+                    <td>{{ p.approved_by|placeholder }}</td><td>{{ p.expires|placeholder }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="card-body text-secondary">{% trans "No access path targets or runs through a device in scope." %}</div>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% endif %}
+{% endif %}

@@ -5,13 +5,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from dcim.api.serializers import SiteSerializer
-from dcim.models import Site
+from dcim.models import Device, Location, Site
 from netbox.api.viewsets import NetBoxModelViewSet
 
 from .. import filtersets, staleness
 from ..accessmap import access_map_flows
 from ..checks import SEVERITIES, run_checks
 from ..choices import PurdueLevelChoices
+from ..machine import Scope, build_machine, machine_json
 from ..models import (
     Conduit,
     Fieldbus,
@@ -237,7 +238,6 @@ class FirewallRulesAPIView(APIView):
         return 'Firewall rules'
 
     def get(self, request):
-        from dcim.models import Device
         from virtualization.models import VirtualMachine
 
         if not request.user.has_perm('netbox_ot.view_flow'):
@@ -259,3 +259,38 @@ class FirewallRulesAPIView(APIView):
             'rules': rules,
             'not_exported': dict(skipped),
         })
+
+
+class MachineDrawingAPIView(APIView):
+    """
+    The machine drawing's data: devices (firmware, addresses with NAT, modules), cables, the flows that cross the
+    scope and the firewall-rule columns for them, and access paths when netbox-access-paths is installed.
+    GET ?site_id=<id> | &location_id=<id> | &tag=<slug>[&tag=<slug>] (any mix, all apply)[&version=<text>].
+    """
+    queryset = Device.objects.all()  # for NetBox's token permission check (view_device)
+
+    def get_view_name(self):
+        return 'Machine drawing'
+
+    def get(self, request):
+        from extras.models import Tag
+
+        if not request.user.has_perm('dcim.view_device'):
+            raise PermissionDenied()
+        found = {}
+        for param, model in (('site_id', Site), ('location_id', Location)):
+            value = request.query_params.get(param)
+            if value:
+                try:
+                    found[param] = model.objects.restrict(request.user, 'view').get(pk=int(value))
+                except (ValueError, model.DoesNotExist):
+                    raise ValidationError({param: 'Not found.'})
+        slugs = set(request.query_params.getlist('tag'))
+        tags = list(Tag.objects.filter(slug__in=slugs))
+        if len(tags) != len(slugs):
+            raise ValidationError({'tag': 'Unknown tag.'})
+        scope = Scope(site=found.get('site_id'), location=found.get('location_id'), tags=tags,
+                      version=request.query_params.get('version', ''))
+        if not scope:
+            raise ValidationError({'site_id': 'Give a site_id, a location_id, a tag or a mix of these.'})
+        return Response(machine_json(build_machine(scope, request.user)))

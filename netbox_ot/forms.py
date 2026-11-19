@@ -2,7 +2,8 @@ from django import forms
 from django.contrib.postgres.forms import SimpleArrayField
 from django.utils.translation import gettext_lazy as _
 
-from dcim.models import Device, Site
+from dcim.models import Device, Location, Site
+from extras.models import Tag
 from ipam.forms.bulk_import import ServicePortMappingsImportMixin
 from ipam.forms.fields import PortMappingField
 from ipam.models import Prefix, Service
@@ -1109,6 +1110,33 @@ class AccessMapFilterForm(forms.Form):
             self.fields[name].widget.attrs['class'] = 'form-select'
         for name in ('collapse', 'empty'):
             self.fields[name].widget.attrs['class'] = 'form-check-input'
+
+
+class MachineDrawingFilterForm(forms.Form):
+    """
+    What one machine drawing covers: a site, a location (and the locations below it), tags, or a mix (all apply).
+    `location` fixes the location (the tab on a location).
+    """
+    site_id = DynamicModelChoiceField(queryset=Site.objects.all(), required=False, label=_('Site'))
+    location_id = DynamicModelChoiceField(
+        queryset=Location.objects.all(), required=False, label=_('Location'), query_params={'site_id': '$site_id'},
+        help_text=_('With the locations below it'),
+    )
+    tag = DynamicModelMultipleChoiceField(
+        queryset=Tag.objects.all(), to_field_name='slug', required=False, label=_('Tags'),
+        help_text=_('Devices with any of these tags, e.g. the tag of one machine'),
+    )
+    version = forms.CharField(
+        required=False, max_length=60, label=_('Machine version'),
+        help_text=_('Printed in the header and on the drawing, e.g. "type 3200, revision C"'),
+    )
+
+    def __init__(self, *args, location=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if location is not None:
+            del self.fields['site_id']
+            del self.fields['location_id']
+        self.fields['version'].widget.attrs['class'] = 'form-control'
 
 
 class RiskRegisterFilterForm(forms.Form):

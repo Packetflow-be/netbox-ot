@@ -22,4 +22,5 @@ urlpatterns = router.urls + [
     path('register/', views.RegisterAPIView.as_view(), name='register'),
     path('overview/', views.OverviewAPIView.as_view(), name='overview'),
     path('firewall-rules/', views.FirewallRulesAPIView.as_view(), name='firewall_rules'),
+    path('machine-drawing/', views.MachineDrawingAPIView.as_view(), name='machine_drawing'),
 ]

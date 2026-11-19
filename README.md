@@ -48,6 +48,9 @@ zone register.
 - **System requirements** (IEC 62443-3-3) and their status per zone or conduit, for the audit; identifiers ship,
   the texts and levels come from your own copy of the standard.
   [System requirements](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/requirements.md)
+- **Machine drawing** per site, location or tag: devices in their zones, cables with ports, addresses with
+  1:1 NAT, firmware and every connection that leaves the machine, as SVG, print and CSV for the technical file
+  of the Machinery Regulation. [Machine drawing](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/machine-drawing.md)
 - **Vendor-neutral firewall rules** from the allowed flows. [Firewall rules](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/firewall-rules.md)
 - **Lifecycle**: end of support per device from netbox-lifecycle (device type and modules), checks for
   unsupported devices in secure zones, and a firmware version field on devices and modules.

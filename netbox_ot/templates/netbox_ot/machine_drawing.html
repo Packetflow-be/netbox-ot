@@ -1,0 +1,14 @@
+{% extends 'generic/_base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Machine drawing" %}{% if scope %}: {{ scope.label }}{% endif %}{% endblock %}
+
+{% block subtitle %}
+  <div class="text-secondary">
+    {% trans "One drawing per machine for the technical file: devices in their zones, cables, addresses with NAT, firmware, and every connection that leaves the machine." %}
+  </div>
+{% endblock %}
+
+{% block content %}
+  {% include 'netbox_ot/inc/machine_drawing.html' %}
+{% endblock %}
