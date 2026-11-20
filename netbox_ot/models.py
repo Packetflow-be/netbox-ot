@@ -369,7 +369,8 @@ class Flow(PrimaryModel):
         verbose_name=_('access'),
         blank=True,
         default=list,
-        help_text=_('What the requests do to the destination: read, write, control, program'),
+        help_text=_('What the requests do to the destination: read, write, control, program; unclassified when '
+                    'the import saw requests it could not classify, which count as if they might change it'),
     )
     remote_access = models.BooleanField(
         verbose_name=_('remote access'),
@@ -513,6 +514,10 @@ class Flow(PrimaryModel):
     @property
     def is_modifying(self):
         return any(a in AccessChoices.MODIFYING for a in self.access)
+
+    @property
+    def is_unclassified(self):
+        return AccessChoices.UNCLASSIFIED in self.access
 
     @property
     def is_expired(self):

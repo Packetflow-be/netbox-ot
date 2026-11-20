@@ -10,12 +10,13 @@ is allowed?**
 - Flows are ordered by what needs action: not allowed first, then allowed but expired, unknown, and allowed.
   Within each verdict, flows that write, control or program and come from outside (a DMZ, enterprise or
   external zone, or remote access) come first, then other flows that write, control or program, then other
-  flows from outside, then the rest.
+  flows from outside, then the rest. A flow with *unclassified* requests ranks with the ones that write, control
+  or program (see [Unclassified requests](#unclassified-requests)).
 - Each row shows the source and destination zone with their levels, the protocol and ports, the access the
-  requests had (read, write, control, program), the hops it runs through, remote access, the verdict, when the
-  flow was last seen and the evidence.
-- **Needs attention** starts with the undecided flows into a control zone that write, control or program it,
-  are remote access or come from outside, and the flows allowed straight from outside into a control zone (the
+  requests had (read, write, control, program, unclassified), the hops it runs through, remote access, the
+  verdict, when the flow was last seen and the evidence.
+- **Needs attention** starts with the undecided flows into a control zone that write, control or program it (or
+  may: unclassified requests), are remote access or come from outside, and the flows allowed straight from outside into a control zone (the
   `undecided-into-control` and `outside-into-control` checks; also flow filters of those names). Then it sums
   up expired access, verdicts due for review, flows not seen for `stale_after_days`
   (default 90) before the latest observation at the site, flows that run outside any documented conduit, and flows that reach their zone over a connection
@@ -50,7 +51,7 @@ The diagram is drawn per site; the page for all sites lists the flows only.
 - Purdue levels are the rows, 5 at the top. A level with more than six zones wraps into several rows.
 - There is one arrow per zone pair and direction, from the side that acts to the side acted upon: red for not
   allowed or expired, amber for unknown, green for allowed; heavy when a flow on it writes, controls or
-  programs; dashed for remote access, dotted when the destination opens the connection itself. An arrow that carries several flows is thicker and shows how many,
+  programs, or carries unclassified requests; dashed for remote access, dotted when the destination opens the connection itself. An arrow that carries several flows is thicker and shows how many,
   per colour.
 - Arrows that skip a level run through the gaps between the zones in between, not behind them, and the zones
   of a row are ordered so that arrows cross as little as possible.
@@ -75,3 +76,20 @@ and about 200 flows to try this on.
 data, for reports and other tools: the flows into zones at that Purdue level or below, in access-map order,
 as full flow objects with their hops. Needs `view_flow` and view access to the site. The diagram is only on
 the page, not in the API.
+
+## Unclassified requests
+
+The importer classifies every request of an industrial protocol by an explicit table per protocol
+(`netbox_ot/importers/functions.py`). A request whose function is not in the table (a vendor's engineering
+channel such as Schneider's UMAS over Modbus function 90, a CIP service the parser only knows by its code, a
+function the table does not have yet) or whose content the parser could not read (an encrypted OPC UA session)
+gives its flow the access class **unclassified**. Nobody knows whether such a request changes the controller, so
+the access map and the checks fail closed: an unclassified flow into a control zone counts as one that may change
+it. It is an `undecided-into-control` finding until a person gives it a verdict, it ranks with the flows that
+write, control or program, and its arrow is heavy. The evidence lists the requests (`[unclassified]`) and who sent
+them. A request without any function (a connection setup, a keep-alive) does not count, and neither does one of an
+IT protocol (HTTP, DNS).
+
+Decide the flow as any other: once it has a verdict it no longer needs attention. Leave the class on the flow; a
+re-import adds it again as long as the capture holds such requests.
+

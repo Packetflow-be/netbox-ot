@@ -1,0 +1,28 @@
+{
+  "parse": {
+    "dnp3": {
+      "requests": 1,
+      "access": {
+        "control": 1
+      },
+      "unclassified": {}
+    },
+    "modbus-tcp": {
+      "requests": 1493,
+      "access": {
+        "read": 1489,
+        "write": 4
+      },
+      "unclassified": {}
+    },
+    "s7comm": {
+      "requests": 4,
+      "access": {
+        "other": 2,
+        "read": 1,
+        "write": 1
+      },
+      "unclassified": {}
+    }
+  }
+}

@@ -10,7 +10,8 @@ The machine drawing as a server-rendered SVG, so it prints, downloads and works 
   left column   what a cable leaves the machine for: devices out of scope, circuits.
   right column  the zones the flows go to or come from, one box each; one arrow per frame, outside zone and
                 direction, labelled with each flow's protocol and ports and styled as on the access map (colour =
-                verdict, dashed = remote access, dotted = opened from the inside, heavy = changes the destination).
+                verdict, dashed = remote access, dotted = opened from the inside, heavy = changes the destination,
+                or may: unclassified requests).
 """
 import math
 from collections import defaultdict
@@ -21,7 +22,7 @@ from django.utils.translation import gettext as _
 
 from .accessdiagram import COLORS, SHADE, SHADES, _short
 from .choices import PurdueLevelChoices, ZoneTypeChoices
-from .exposure import changes_flow
+from .exposure import may_change_flow
 from .machine import _level_key
 
 BOX_W, BOX_H = 188, 70
@@ -439,7 +440,7 @@ def machine_diagram(machine):
         outbound = any(f.is_outbound_only for f in flows)
         pattern = {(True, False): '6 4', (False, True): '2 4', (True, True): '6 3 2 3'}.get((remote, outbound))
         dash = f' stroke-dasharray="{pattern}"' if pattern else ''
-        thick = 4.2 if any(changes_flow(f) for f in flows) else 1.8
+        thick = 4.2 if any(may_change_flow(f) for f in flows) else 1.8
         if g['out']:
             path = f'M{grid_right},{sy} C{grid_right + FLOW_GAP * 0.72},{sy} {out_x - 70},{ey} {out_x},{ey}'
         else:
@@ -477,7 +478,8 @@ def machine_diagram(machine):
                             f'stroke-width="{1.8 if kind == "flow" else 1.6}"{dash}{marker}/>'
                             f'<text x="{PAD + 54}" y="{yy}" class="md-ds">{escape(text)}</text>')
     legend_parts.append(f'<text x="{PAD}" y="{ly0 + 18 + len(legend) * 17}" class="md-ds">'
-                        f'{escape(_("Heavy arrow: writes, controls or programs the destination"))}</text>')
+                        f'{escape(_("Heavy arrow: writes, controls or programs the destination, or carries "
+                                    "unclassified requests"))}</text>')
     tb_w = 330
     title_lines = [(_('Machine drawing'), 'md-zt'), (_short(scope.label, 52), 'md-ds')]
     if scope.version:

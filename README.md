@@ -12,6 +12,8 @@ Belgium.
 **Live demo: [netbox-ot.packetflow.be](https://netbox-ot.packetflow.be)**, log in as `demo` / `demo`. A fictional
 plant with the companion plugins beside netbox-ot (netbox-lifecycle, netbox-inventory, netbox-access-paths,
 netbox-topology-views). You can change anything; it is reset every two hours, so don't enter real data.
+[What is in the demo plant](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/demo.md): its zones, network,
+machine, controllers and flows, drawn level by level, and what is wrong in it on purpose.
 
 [![PyPI](https://img.shields.io/pypi/v/netbox-ot)](https://pypi.org/project/netbox-ot/)
 [![CI](https://github.com/Packetflow-be/netbox-ot/actions/workflows/ci.yml/badge.svg)](https://github.com/Packetflow-be/netbox-ot/actions/workflows/ci.yml)
@@ -164,7 +166,9 @@ sudo venv/bin/python netbox/manage.py ot_import /captures/plant-a --site plant-a
 ```
 
 The site's *OT overview* tab then says what to do next. See
-[docs/zeek.md](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/zeek.md).
+[docs/zeek.md](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/zeek.md). Running [Malcolm](https://github.com/cisagov/Malcolm)? Its Zeek logs import the same way;
+see [docs/malcolm.md](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/malcolm.md) for where they are and for netbox-ot inside
+Malcolm's own NetBox.
 
 [netbox-docker](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/installation.md#netbox-docker), the settings, permissions, upgrading and removing are in
 [docs/installation.md](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/installation.md).

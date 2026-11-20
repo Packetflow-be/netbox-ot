@@ -67,6 +67,8 @@ for _protocol, _ports in IndustrialProtocolChoices.DEFAULT_PORTS.items():
             OT_PORTS[_port].append(_protocol)
 OT_PORTS = dict(OT_PORTS)
 BANDS = ('control', 'supervisory', 'operations')
+# The classes a flow can carry: those of functions.py, and unclassified for requests no table could classify
+FLOW_CLASSES = CLASSES + (UNCLASSIFIED,)
 LISTENING = ('server', 'both')
 EVIDENCE_LINES = 50  # request lines kept in a flow's evidence, largest counts first
 
@@ -145,6 +147,8 @@ class InsideZone:
     senders: set = field(default_factory=set)
     modifying: int = 0  # write, control and program requests
     modifying_senders: set = field(default_factory=set)
+    unclassified: int = 0  # requests whose function no table classifies: they may change the destination too
+    unclassified_senders: set = field(default_factory=set)
     levels: dict = field(default_factory=dict)  # sender or receiver ip -> Purdue level ('' when unknown)
 
 
@@ -175,6 +179,10 @@ class _Request:
     connection: str = ConnectionChoices.CLIENT_SERVER
     broker: str = ''  # broker address, for a request through a broker
     topic: str = ''
+    # A request of an industrial protocol with a function that no table classifies (or that the input itself calls
+    # unclassified): it may change the destination, so the flow carries the class "unclassified". A request without
+    # a function (a connection setup, a keep-alive the source did not name) does not.
+    unclassified: bool = False
 
     @property
     def line(self):
@@ -256,8 +264,8 @@ def validate(assets, flows, summary):
             raise ValueError(f'{where}: "src", "dst" and "proto" are required')
         ip(f['src'], where)
         ip(f['dst'], where)
-        if f.get('access') not in (None, '') and str(f['access']).lower() not in CLASSES:
-            raise ValueError(f'{where}: access {f["access"]!r} is not one of {", ".join(CLASSES)}')
+        if f.get('access') not in (None, '') and str(f['access']).lower() not in FLOW_CLASSES:
+            raise ValueError(f'{where}: access {f["access"]!r} is not one of {", ".join(FLOW_CLASSES)}')
         if 'port' in f:
             port(f['port'], where)
         if f.get('transport') not in (None, 'tcp', 'udp'):
@@ -404,10 +412,12 @@ def build_plan(assets, flows, summary, outside_zone='Outside', split_zones=None)
     seen_in = (f"captures {captures}" if captures else 'the observations') + (f" ({hours} h)" if hours else '')
     window = (_timestamp(summary.get('start'), ''), _timestamp(summary.get('end'), ''))
 
+    industrial = set(IndustrialProtocolChoices.values())
     requests = []
     for i, f in enumerate(flows):
         protocol = protocol_value(f['proto'])
-        access = str(f.get('access') or '').lower() or classify(protocol, f.get('func'))
+        declared = str(f.get('access') or '').lower()
+        access = declared or classify(protocol, f.get('func'))
         requests.append(_Request(
             src=f['src'], dst=f['dst'], proto=str(f['proto']), protocol=protocol, func=str(f.get('func') or ''),
             count=f.get('count', 1), access=access,
@@ -416,17 +426,18 @@ def build_plan(assets, flows, summary, outside_zone='Outside', split_zones=None)
             last_seen=_timestamp(f.get('last_seen'), '') or window[1],
             connection=f.get('connection') or ConnectionChoices.CLIENT_SERVER, broker=f.get('broker') or '',
             topic=str(f.get('topic') or ''),
+            unclassified=access == UNCLASSIFIED and (
+                declared == UNCLASSIFIED or (protocol in industrial and str(f.get('func') or '').strip() != '')),
         ))
 
     # OT requests between zones, keyed by (source zone, destination zone, protocol, connection, broker zone)
     ot = defaultdict(list)
-    industrial = set(IndustrialProtocolChoices.values())
     inside = {}
     for r in requests:
         zs, zd = zone_of(r.src), zone_of(r.dst)
         if zs != zd:
             ot[(zs, zd, r.protocol, r.connection, zone_of(r.broker) if r.broker else '')].append(r)
-        elif zs != outside_zone and (r.protocol in industrial or r.access in MODIFYING):
+        elif zs != outside_zone and (r.protocol in industrial or r.access in MODIFYING or r.unclassified):
             # Not a flow (flows run between zones), but reported: a cell's own writes matter most
             iz = inside.setdefault(zs, InsideZone(zone=zs))
             iz.requests += r.count
@@ -434,9 +445,13 @@ def build_plan(assets, flows, summary, outside_zone='Outside', split_zones=None)
             if r.access in MODIFYING:
                 iz.modifying += r.count
                 iz.modifying_senders.add(r.src)
+            if r.unclassified:
+                iz.unclassified += r.count
+                iz.unclassified_senders.add(r.src)
             for ip in (r.src, r.dst):
                 iz.levels[ip] = _level(by_ip.get(ip, {}).get('purdue_level'))
-    inside = dict(sorted(inside.items(), key=lambda kv: (-kv[1].modifying, -kv[1].requests, kv[0])))
+    inside = dict(sorted(inside.items(),
+                         key=lambda kv: (-kv[1].modifying, -kv[1].unclassified, -kv[1].requests, kv[0])))
     ot_pairs = {(key[0], key[1]) for key in ot}
 
     # Connection counts per directed zone pair, from zone_pairs
@@ -493,6 +508,10 @@ def build_plan(assets, flows, summary, outside_zone='Outside', split_zones=None)
         if senders:
             lines.append('Changes the destination (write/control/program): ' + '; '.join(
                 f"{by_ip.get(ip, {}).get('role') or 'unknown'} ({ip})" for ip in senders))
+        unclassified = list(dict.fromkeys(r.src for r in crossing if r.unclassified))
+        if unclassified:
+            lines.append('May change the destination, requests nobody could classify (check what they do): '
+                         + '; '.join(f"{by_ip.get(ip, {}).get('role') or 'unknown'} ({ip})" for ip in unclassified))
         unknown = sorted({r.proto for r in crossing if not r.protocol and r.proto != 'port scan'})
         if unknown:
             lines.append(f"Protocol not recognised: {', '.join(unknown)}")
@@ -503,7 +522,9 @@ def build_plan(assets, flows, summary, outside_zone='Outside', split_zones=None)
             protocol=protocol, connection=connection, broker_zone=broker_zone,
             topics=list(dict.fromkeys(r.topic for r in crossing if r.topic)),
             port_mappings=list(dict.fromkeys(r.port_mapping for r in crossing if r.port_mapping)),
-            access=sorted({r.access for r in crossing if r.access != UNCLASSIFIED}, key=CLASSES.index),
+            access=sorted({r.access for r in crossing if r.access != UNCLASSIFIED}
+                          | ({UNCLASSIFIED} if any(r.unclassified for r in crossing) else set()),
+                          key=FLOW_CLASSES.index),
             remote_access=any(by_ip.get(r.src, {}).get('remote_access') for r in crossing),
             session=not crossing or any(_has_session(r) for r in crossing),
             first_seen=min(times_first) if times_first else None,
@@ -1050,7 +1071,7 @@ def apply_plan(plan, site, vrf=None, log=print, move=False):
                          'traffic or a port scan. Set it by hand if someone works through this path.')
         new = {
             'port_mappings': _merge(flow.port_mappings, fp.port_mappings),
-            'access': _merge(flow.access, fp.access, order=list(CLASSES)),
+            'access': _merge(flow.access, fp.access, order=list(FLOW_CLASSES)),
             'topics': _merge(flow.topics, fp.topics),
             'remote_access': flow.remote_access or fp.remote_access or (external and fp.session),
             'first_seen': _widest(min, flow.first_seen, fp.first_seen),

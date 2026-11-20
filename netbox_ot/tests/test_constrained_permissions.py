@@ -91,13 +91,14 @@ class ConstrainedPermissionTest(TestCase):
             'ui access map': reverse('plugins:netbox_ot:accessmap') + f'?site_id={sid}',
             'ui checks': reverse('plugins:netbox_ot:checks') + f'?site_id={sid}',
             'ui risk register': reverse('plugins:netbox_ot:risk_register'),
-            'api flows': '/api/plugins/ot/flows/',
-            'api risk assessments': '/api/plugins/ot/risk-assessments/',
-            'api register': f'/api/plugins/ot/register/?site_id={sid}',
-            'api checks': f'/api/plugins/ot/checks/?site_id={sid}',
-            'api overview': f'/api/plugins/ot/overview/?site_id={sid}',
-            'api access map': f'/api/plugins/ot/access-map/?site_id={sid}&max_level=3',
-            'api firewall rules': f'/api/plugins/ot/firewall-rules/?site_id={sid}&include_denied=true',
+            'api flows': reverse('plugins-api:netbox_ot-api:flow-list'),
+            'api risk assessments': reverse('plugins-api:netbox_ot-api:riskassessment-list'),
+            'api register': reverse('plugins-api:netbox_ot-api:register') + f'?site_id={sid}',
+            'api checks': reverse('plugins-api:netbox_ot-api:checks') + f'?site_id={sid}',
+            'api overview': reverse('plugins-api:netbox_ot-api:overview') + f'?site_id={sid}',
+            'api access map': reverse('plugins-api:netbox_ot-api:accessmap') + f'?site_id={sid}&max_level=3',
+            'api firewall rules': (reverse('plugins-api:netbox_ot-api:firewall_rules')
+                                   + f'?site_id={sid}&include_denied=true'),
         }
         leaks = []
         for label, url in urls.items():
@@ -112,7 +113,8 @@ class ConstrainedPermissionTest(TestCase):
             'graphql flows': '{ ot_flow_list { name } }',
         }
         for label, query in queries.items():
-            response = self.client.post('/graphql/', data=json.dumps({'query': query}), content_type='application/json')
+            response = self.client.post(reverse('graphql'), data=json.dumps({'query': query}),
+                                        content_type='application/json')
             self.assertEqual(response.status_code, 200, label)
             if MARK in (body := response.content.decode()):
                 leaks.append(f'{label}: ...{_context(body)}...')
@@ -122,12 +124,12 @@ class ConstrainedPermissionTest(TestCase):
         """The conduit list and the zone/conduit API list no site-B object as a row (nested references may show)."""
         body = self.client.get(reverse('plugins:netbox_ot:conduit_list')).content.decode()
         self.assertNotIn(f'Conduit {MARK}', body)
-        for endpoint in ('zones', 'conduits'):
-            results = self.client.get(f'/api/plugins/ot/{endpoint}/').json()['results']
+        for endpoint in ('zone', 'conduit'):
+            results = self.client.get(reverse(f'plugins-api:netbox_ot-api:{endpoint}-list')).json()['results']
             self.assertFalse([r['name'] for r in results if MARK in r['name']], endpoint)
 
     def test_register_counts_only_visible_flows(self):
         """The cross-site conduit carries a site-B flow the user cannot view: the register does not count it."""
-        data = self.client.get(f'/api/plugins/ot/register/?site_id={self.site_a.pk}').json()
+        data = self.client.get(reverse('plugins-api:netbox_ot-api:register') + f'?site_id={self.site_a.pk}').json()
         cross = next(c for c in data['conduits'] if c['conduit'] == 'Conduit cross')
         self.assertEqual((cross['flows'], cross['not_allowed'], cross['zones']), (0, 0, 'Zone A1'))

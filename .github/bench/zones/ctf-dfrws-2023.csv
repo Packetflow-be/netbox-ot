@@ -1,0 +1,6 @@
+network,zone,purdue_level,type
+192.168.10.0/24,Elevator cell,1,ot
+192.168.10.45,Elevator cell,1,
+192.168.10.121,Elevator cell,2,
+192.168.10.130,Elevator cell,2,
+192.168.10.164,Elevator cell,2,

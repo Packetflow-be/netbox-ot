@@ -6,8 +6,11 @@ the access map (order and "needs attention") and the flow filters.
   from outside   a flow out of a DMZ, enterprise or external zone, or out of a zone at level 3.5 or higher: from
                  the business network, a supplier or the internet, past the site's operations level
   changes        a flow whose requests write, control or program its destination
+  may change     a flow that changes its destination or carries requests the import could not classify: the rules
+                 fail closed, so a vendor's engineering channel or a function no table knows yet is not taken for
+                 harmless
 
-  undecided-into-control  nobody decided yet whether a flow into a control zone may exist, and it changes the
+  undecided-into-control  nobody decided yet whether a flow into a control zone may exist, and it may change the
                           controllers, is remote access, or comes from outside
   outside-into-control    a flow that is allowed straight from outside into a control zone, without passing a
                           supervisory zone
@@ -34,8 +37,17 @@ def changes():
     return Q(access__overlap=list(AccessChoices.MODIFYING))
 
 
+def unclassified():
+    return Q(access__contains=[AccessChoices.UNCLASSIFIED])
+
+
+def may_change():
+    return Q(access__overlap=list(AccessChoices.MAY_CHANGE))
+
+
 def undecided_into_control():
-    return Q(allowed=FlowAllowedChoices.UNKNOWN) & into_control() & (changes() | Q(remote_access=True) | from_outside())
+    return Q(allowed=FlowAllowedChoices.UNKNOWN) & into_control() & (
+        may_change() | Q(remote_access=True) | from_outside())
 
 
 def outside_into_control():
@@ -43,11 +55,14 @@ def outside_into_control():
 
 
 def exposure_order():
-    """Within one verdict: 0 changes and comes from outside or remotely, 1 changes, 2 outside or remote, 3 the rest."""
+    """
+    Within one verdict: 0 may change and comes from outside or remotely, 1 may change, 2 outside or remote, 3 the
+    rest. "May change" includes unclassified requests: what nobody could classify is not ranked as harmless.
+    """
     outside = from_outside() | Q(remote_access=True)
     return Case(
-        When(changes() & outside, then=Value(0)),
-        When(changes(), then=Value(1)),
+        When(may_change() & outside, then=Value(0)),
+        When(may_change(), then=Value(1)),
         When(outside, then=Value(2)),
         default=Value(3),
         output_field=IntegerField(),
@@ -66,12 +81,18 @@ def changes_flow(flow):
     return any(a in AccessChoices.MODIFYING for a in flow.access or ())
 
 
+def may_change_flow(flow):
+    return any(a in AccessChoices.MAY_CHANGE for a in flow.access or ())
+
+
 def reasons(flow):
     """Why an undecided flow into a control zone needs a decision first, as short phrases."""
     labels = dict(AccessChoices.CHOICES)
     found = []
     if changes_flow(flow):
         found.append(', '.join(str(labels[a]).lower() for a in flow.access if a in AccessChoices.MODIFYING))
+    if AccessChoices.UNCLASSIFIED in (flow.access or ()):
+        found.append(str(_('requests nobody could classify')))
     if flow.remote_access:
         found.append(str(_('remote access')))
     if is_outside_zone(flow.source_zone):

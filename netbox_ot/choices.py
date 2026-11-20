@@ -78,12 +78,18 @@ class FlowAllowedChoices(ChoiceSet):
 
 
 class AccessChoices(ChoiceSet):
-    """What a flow's requests do to the destination (see importers/functions.py)."""
+    """
+    What a flow's requests do to the destination (see importers/functions.py). Unclassified: requests of an
+    industrial protocol whose function the import could not classify (a vendor's engineering channel, a function the
+    table does not have yet, an encrypted session). Nobody knows whether they change the destination, so the
+    exposure rules count them as if they might until a person decides the flow.
+    """
     READ = 'read'
     WRITE = 'write'
     CONTROL = 'control'
     PROGRAM = 'program'
     OTHER = 'other'
+    UNCLASSIFIED = 'unclassified'
 
     CHOICES = (
         Choice(READ, _('Read'), color='green'),
@@ -91,9 +97,12 @@ class AccessChoices(ChoiceSet):
         Choice(CONTROL, _('Control'), color='red'),
         Choice(PROGRAM, _('Program'), color='purple'),
         Choice(OTHER, _('Other'), color='gray'),
+        Choice(UNCLASSIFIED, _('Unclassified'), color='yellow'),
     )
     # Classes that change the destination
     MODIFYING = (WRITE, CONTROL, PROGRAM)
+    # Classes that change it or may: the exposure rules fail closed on what the import could not classify
+    MAY_CHANGE = MODIFYING + (UNCLASSIFIED,)
 
 
 class ConnectionChoices(ChoiceSet):

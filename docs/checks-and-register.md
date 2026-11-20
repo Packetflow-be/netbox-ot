@@ -8,7 +8,8 @@
 exposes the controllers:
 
 - **`undecided-into-control`** (error): a flow into a control zone (Purdue level 0 or 1, or a safety zone) that
-  writes, controls or programs it, is remote access, or comes from a DMZ, enterprise or external zone (or a zone
+  writes, controls or programs it or may (its access includes *unclassified*: requests the import could not
+  classify, see [Unclassified requests](access-map.md#unclassified-requests)), is remote access, or comes from a DMZ, enterprise or external zone (or a zone
   at level 3.5 or higher), and that nobody has decided on yet. After a first import these are the flows to
   decide first; a CI job with the default `--fail-on error` fails until they are decided.
 - **`outside-into-control`** (warning): a flow that is allowed straight from a DMZ, enterprise or external zone
