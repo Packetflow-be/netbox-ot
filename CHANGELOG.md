@@ -3,6 +3,22 @@
 Each release opens with what kind of release it is. Breaking changes are listed under **Breaking Changes**.
 Numbers link to the issue or pull request on GitHub; entries without a number predate the public repository.
 
+## Unreleased
+
+### Documentation
+
+- **Using netbox-ot with Malcolm**: [docs/malcolm.md](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/malcolm.md)
+  covers where Malcolm keeps its Zeek logs and how to import them, installing netbox-ot as one of Malcolm's custom
+  plugins, and the current status: Malcolm v26.10.0 ships NetBox 4.6.10, so netbox-ot does not load there until
+  Malcolm moves to 4.7 ([#69](https://github.com/Packetflow-be/netbox-ot/pull/69)).
+
+### CI
+
+- **Malcolm workflow** ([#69](https://github.com/Packetflow-be/netbox-ot/pull/69)): netbox-ot installed by Malcolm's
+  own plugin installer in Malcolm's NetBox image (as released, and built on NetBox 4.7), and a **bench**: five public
+  ICS captures, credited in `.github/bench/`, run through Malcolm's Zeek image and imported, with the per-protocol
+  counts, unclassified functions, flows and findings compared to recorded results.
+
 ## 0.7.2 (2026-11-19)
 
 Patch release: documentation only, so the PyPI page shows it. No code changes, no migrations.

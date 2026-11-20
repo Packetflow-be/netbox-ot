@@ -60,7 +60,19 @@ def parse(logdir):
     }
 
 
+def write_observations(dataset, logdir):
+    # The same logs and zone map as observation files (assets, flows, summary): aggregated requests, no packets. This
+    # is what the capture demo (netbox_ot/data/demo/<id>/, ot_demo --capture) is made from.
+    zone_map = zeek.ZoneMap.from_csv(BENCH / dataset['import']['zone_map'])
+    assets, flows, summary = zeek.to_observations(zeek.read_logs(logdir), zone_map, captures=[dataset['title']])
+    out = results_dir / f"{dataset['id']}.observations"
+    out.mkdir(exist_ok=True)
+    for name, data in (('assets', assets), ('flows', flows), ('summary', summary)):
+        (out / f'{name}.json').write_text(json.dumps(data, indent=1, sort_keys=True) + '\n')
+
+
 def import_and_check(dataset, logdir):
+    write_observations(dataset, logdir)
     spec = dataset['import']
     site, _ = Site.objects.get_or_create(slug=f"bench-{dataset['id']}", defaults={'name': f"bench {dataset['id']}"})
     args = {'site': site.slug, 'zone_map': str(BENCH / spec['zone_map'])}

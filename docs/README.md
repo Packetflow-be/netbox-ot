@@ -15,7 +15,8 @@
    Regulation, with its tables.
 7. [Industrial systems and protocols](industrial.md): industrial services and fieldbuses.
 8. [Importer](importer.md): Zeek logs ([zeek.md](zeek.md)) and observation files
-   ([import-format.md](import-format.md)).
+   ([import-format.md](import-format.md)). [Malcolm](malcolm.md): netbox-ot in Malcolm's NetBox, and importing
+   Malcolm's Zeek logs.
 9. [REST API, GraphQL and management commands](api.md).
 10. [OT overview](overview.md): where a site stands, as a radar chart of achieved against target security
     level, requirement statuses and risk.
