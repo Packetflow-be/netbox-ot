@@ -101,6 +101,7 @@ def accessmap_labels():
         'protocol': str(_('Protocol / ports')),
         'verdict': str(_('Allowed')),
         'remote': str(_('remote access')),
+        'unclassified': str(_('unclassified requests')),
         'open': str(_('Open the zone')),
         'focus': str(_('Only this zone and its neighbours')),
         'flows': str(_('flows')),

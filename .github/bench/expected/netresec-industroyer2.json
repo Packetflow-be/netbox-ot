@@ -1,0 +1,11 @@
+{
+  "parse": {
+    "spicy_iec104": {
+      "requests": 3,
+      "access": {
+        "no function": 3
+      },
+      "unclassified": {}
+    }
+  }
+}

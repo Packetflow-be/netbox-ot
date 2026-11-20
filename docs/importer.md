@@ -37,7 +37,10 @@ It creates:
 - a flow per source zone, destination zone and protocol seen, with the ports the input gives (none
   are assumed), first/last seen, and the requests as evidence. Every request is classified as read,
   write, control or program by an explicit table per protocol (`netbox_ot/importers/functions.py`);
-  the senders of write, control and program requests are listed in the evidence, and *remote access* is
+  the senders of write, control and program requests are listed in the evidence. A request of an industrial
+  protocol whose function is not in the table gives the flow the class *unclassified*, and its senders are
+  listed too: such a flow counts as one that may change its destination until a person decides it (see
+  [Unclassified requests](access-map.md#unclassified-requests)). *Remote access* is
   set when an asset marked `remote_access` in the input sent requests across. A flow is put in a conduit
   only when exactly one conduit joins both of its zones;
 - industrial services, and for a server whose port is known, a link to a NetBox application service

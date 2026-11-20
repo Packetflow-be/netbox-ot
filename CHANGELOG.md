@@ -3,6 +3,71 @@
 Each release opens with what kind of release it is. Breaking changes are listed under **Breaking Changes**.
 Numbers link to the issue or pull request on GitHub; entries without a number predate the public repository.
 
+## 0.8.0 (2026-11-20)
+
+Minor release with one breaking change, enhancements, fixes and new features: the importer fails closed on
+requests it cannot classify and counts Zeek 8/9 Modbus and BACnet correctly, netbox-ot is tested inside Malcolm's
+NetBox and on Malcolm's Zeek, and `ot_demo --capture` adds a site from a real capture. No migrations.
+
+### Breaking Changes
+
+- **Unclassified requests count as possibly changing the controllers** ([#67](https://github.com/Packetflow-be/netbox-ot/issues/67)):
+  after a re-import, flows into a control zone that carry requests the importer could not classify are
+  `undecided-into-control` findings until someone decides them, so `ot_check --fail-on error` can fail where it
+  passed before. Until now such requests were dropped from the flow's access, and a flow of nothing but them (a
+  Schneider engineering station's 123,529 UMAS requests to its PLC in a public capture) raised no finding at all.
+  Flows already in NetBox keep their access until the next import.
+
+### Features
+
+- **`ot_demo --capture`**: a demo site imported from a real capture, the network trace of the DFRWS 2023
+  Forensic Challenge "The Troubled Elevator" (DFRWS; SAFE Lab, Virginia Commonwealth University; Apache-2.0),
+  as Malcolm's Zeek and the importer read it: three stations sending Schneider programming requests to the
+  elevator's PLC. The observation files ship in `netbox_ot/data/demo/dfrws-2023-elevator/` with a NOTICE; the
+  bench regenerates them. `--capture --delete` removes the site
+  ([#69](https://github.com/Packetflow-be/netbox-ot/pull/69)).
+
+### Enhancements
+
+- **Access class *unclassified*** ([#67](https://github.com/Packetflow-be/netbox-ot/issues/67)): a request of an
+  industrial protocol whose function is not in the importer's tables (or that `flows.json` itself marks
+  `"access": "unclassified"`) gives its flow this class, and the evidence lists who sent such requests. The exposure
+  rules fail closed on it: it counts for `undecided-into-control`, ranks with the flows that write, control or
+  program on the access map, draws a heavy arrow on the access map and the machine drawing, and shows as a badge in
+  the diagram's detail panel. The site overview counts the flows into control zones that carry it. A request
+  without a function (a connection setup) or of an IT protocol does not count. The import's report of traffic
+  inside a zone counts unclassified requests and their senders too.
+- **Zeek: encrypted OPC UA** is no longer invisible: a service message the ICSNPP parser could not read (a
+  SignAndEncrypt session) counts as the function *Undecoded message*, which is unclassified.
+
+### Fixes
+
+- **Zeek 8 Modbus responses counted as requests**: Zeek 8 writes requests and responses on their own lines
+  (`pdu_type` REQ/RESP), and every response, exception responses included, counted as one more request. Only REQ
+  lines count now; logs of older Zeek releases (one line per transaction) count as before.
+- **BACnet acks and errors counted as requests**: a response on the originator's side (`SIMPLE_ACK` to a
+  WriteProperty, `ERROR_PDU` to a ReinitializeDevice, `read-property-multiple-ack` in `bacnet_property.log`) counted
+  as a request, sometimes as a write or control. ACK, error, reject and abort PDUs are skipped.
+
+### Documentation
+
+- **The demo plant** ([docs/demo.md](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/demo.md)): what is in
+  the public demo and `ot_demo`, drawn level by level (zones and conduits, network and cabling, the machine, the
+  controllers and fieldbus, the flows into the line, remote access, monitoring, the capture site), with the
+  lifecycle and inventory data, the risk assessments and what is wrong in the plant on purpose
+  ([#69](https://github.com/Packetflow-be/netbox-ot/pull/69)).
+- **Using netbox-ot with Malcolm**: [docs/malcolm.md](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/malcolm.md)
+  covers where Malcolm keeps its Zeek logs and how to import them, installing netbox-ot as one of Malcolm's custom
+  plugins, and the current status: Malcolm v26.10.0 ships NetBox 4.6.10, so netbox-ot does not load there until
+  Malcolm moves to 4.7 ([#69](https://github.com/Packetflow-be/netbox-ot/pull/69)).
+
+### CI
+
+- **Malcolm workflow** ([#69](https://github.com/Packetflow-be/netbox-ot/pull/69)): netbox-ot installed by Malcolm's
+  own plugin installer in Malcolm's NetBox image (as released, and built on NetBox 4.7), and a **bench**: five public
+  ICS captures, credited in `.github/bench/`, run through Malcolm's Zeek image and imported, with the per-protocol
+  counts, unclassified functions, flows and findings compared to recorded results.
+
 ## 0.7.2 (2026-11-19)
 
 Patch release: documentation only, so the PyPI page shows it. No code changes, no migrations.

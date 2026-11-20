@@ -15,9 +15,9 @@ hand, then open the checks. The checks of that site already list its devices und
 The first two cards need no levels or assessments, so they say something from the first import on.
 
 *Exposure of the controllers* counts the control zones (Purdue level 0 or 1, or a safety zone) and the flows
-into them: how many write, control or program, are remote access, come from a DMZ, enterprise or external zone,
+into them: how many write, control or program, how many carry requests nobody could classify, are remote access, come from a DMZ, enterprise or external zone,
 or are allowed straight from outside, and how many external zones the site has. A red banner gives the number
-of flows into a control zone that change it, are remote access or come from outside, and that nobody decided
+of flows into a control zone that change it or may (unclassified requests), are remote access or come from outside, and that nobody decided
 on yet, with a link to exactly those flows. These are the conditions of the checks `undecided-into-control` and
 `outside-into-control`.
 

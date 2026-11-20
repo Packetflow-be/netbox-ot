@@ -1,0 +1,186 @@
+name: Malcolm
+
+# netbox-ot inside Malcolm (https://github.com/cisagov/Malcolm), and the importer on Zeek logs as Malcolm writes
+# them. See docs/malcolm.md and .github/bench/README.md.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, the day after a typical Malcolm release lands, to see a new Zeek or parser version change the counts
+    - cron: '37 4 * * 2'
+  workflow_dispatch:
+    inputs:
+      record:
+        description: 'Record the bench results as the new expected files (download them from the bench-results artifact)'
+        type: boolean
+        default: false
+      malcolm:
+        description: 'Malcolm release tag (default: the latest release)'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Malcolm release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.malcolm.outputs.tag }}
+      version: ${{ steps.malcolm.outputs.version }}
+      netbox: ${{ steps.malcolm.outputs.netbox }}
+      supported: ${{ steps.malcolm.outputs.supported }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Which Malcolm, which NetBox
+        id: malcolm
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED: ${{ inputs.malcolm }}
+        run: |
+          tag=${REQUESTED:-$(gh api repos/cisagov/Malcolm/releases/latest -q .tag_name)}
+          netbox=$(gh api "repos/cisagov/Malcolm/contents/Dockerfiles/netbox.Dockerfile?ref=$tag" \
+            -H 'Accept: application/vnd.github.raw' | sed -n 's#^FROM netboxcommunity/netbox:v\([0-9.]*\).*#\1#p')
+          min=$(sed -n "s/^ *min_version = '\(.*\)'/\1/p" netbox_ot/__init__.py)
+          supported=$(python3 -c "import sys; v=lambda s: tuple(map(int, s.split('.'))); print(str(v('$netbox') >= v('$min')).lower())")
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "netbox=$netbox" >> "$GITHUB_OUTPUT"
+          echo "supported=$supported" >> "$GITHUB_OUTPUT"
+          echo "Malcolm $tag ships NetBox $netbox; netbox-ot needs $min or later: supported=$supported" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+  netbox:
+    # Malcolm's own NetBox image as released, netbox-ot dropped into its custom-plugins directory
+    name: Malcolm ${{ needs.resolve.outputs.version }} NetBox (as released)
+    needs: resolve
+    runs-on: ubuntu-latest
+    services: &services
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: netbox
+          POSTGRES_PASSWORD: netbox
+          POSTGRES_DB: netbox
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+    steps:
+      - name: Malcolm's NetBox is older than netbox-ot supports
+        if: needs.resolve.outputs.supported != 'true'
+        run: |
+          msg="Malcolm ${{ needs.resolve.outputs.tag }} ships NetBox ${{ needs.resolve.outputs.netbox }}, older than netbox-ot supports: see the job with NetBox 4.7 instead"
+          echo "::notice::$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@v4
+        if: needs.resolve.outputs.supported == 'true'
+      - name: netbox-ot in Malcolm's NetBox
+        if: needs.resolve.outputs.supported == 'true'
+        run: .github/malcolm/run.sh "ghcr.io/idaholab/malcolm/netbox:${{ needs.resolve.outputs.version }}"
+
+  netbox-47:
+    # Malcolm's NetBox Dockerfile at the same release, built on the newest NetBox 4.7 (with the matching
+    # netbox-initializers and the newest netbox-healthcheck-plugin). Shows whether Malcolm and netbox-ot work together
+    # once Malcolm moves to 4.7. Not a gate: a failure here can be Malcolm's build on a NetBox it does not support
+    # yet, not netbox-ot. Drop this job once Malcolm ships 4.7 and the job above runs for real.
+    name: Malcolm ${{ needs.resolve.outputs.version }} NetBox, built on NetBox 4.7
+    needs: resolve
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services: *services
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: plugin
+      - uses: actions/checkout@v4
+        with:
+          repository: cisagov/Malcolm
+          ref: ${{ needs.resolve.outputs.tag }}
+          path: malcolm
+      - name: Build Malcolm's NetBox image on NetBox 4.7
+        run: |
+          # netbox-docker's floating tag for the newest 4.7 image
+          netbox=v4.7
+          initializers=$(git ls-remote --tags --refs https://github.com/tobiasge/netbox-initializers.git 'v4.7.*' \
+            | sed 's#.*/##' | sort -V | tail -1)
+          # Malcolm's health-check plugin as pinned (0.3.0) does not start on NetBox 4.7; its newest release is tried
+          healthcheck=$(git ls-remote --tags --refs https://github.com/netbox-community/netbox-healthcheck-plugin.git 'v*' \
+            | sed 's#.*/v##' | sort -V | tail -1)
+          echo "NetBox $netbox, netbox-initializers $initializers, netbox-healthcheck-plugin $healthcheck" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          cd malcolm
+          sed -i "s#^FROM netboxcommunity/netbox:v[0-9.]*#FROM netboxcommunity/netbox:$netbox#" Dockerfiles/netbox.Dockerfile
+          sed -i "s#^ENV NETBOX_INITIALIZERS_VERSION=.*#ENV NETBOX_INITIALIZERS_VERSION=\"$initializers\"#" Dockerfiles/netbox.Dockerfile
+          sed -i "s#^ENV NETBOX_HEALTHCHECK_VERSION=.*#ENV NETBOX_HEALTHCHECK_VERSION=\"$healthcheck\"#" Dockerfiles/netbox.Dockerfile
+          grep -E '^FROM|NETBOX_INITIALIZERS_VERSION=|NETBOX_HEALTHCHECK_VERSION=' Dockerfiles/netbox.Dockerfile
+          DOCKER_BUILDKIT=1 docker build -q -f Dockerfiles/netbox.Dockerfile -t malcolm-netbox:4.7 .
+      - name: netbox-ot in Malcolm's NetBox on 4.7
+        working-directory: plugin
+        env:
+          # Malcolm's health-check plugin does not start on NetBox 4.7 (see netbox-in-malcolm.sh)
+          DROP_BROKEN_MALCOLM_PLUGINS: '1'
+        run: .github/malcolm/run.sh malcolm-netbox:4.7
+
+  bench:
+    # Malcolm's Zeek image on public ICS captures, imported by netbox-ot on the newest NetBox 4.7
+    name: Bench, Malcolm ${{ needs.resolve.outputs.version }} Zeek
+    needs: resolve
+    runs-on: ubuntu-latest
+    services: *services
+    env:
+      BENCH_DIR: ${{ github.workspace }}/plugin/.github/bench
+      BENCH_WORK: ${{ github.workspace }}/bench
+      BENCH_RECORD: ${{ inputs.record && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: plugin
+      - uses: actions/cache@v4
+        with:
+          path: bench/download
+          key: bench-${{ hashFiles('plugin/.github/bench/datasets.json') }}
+      - name: Zeek logs from the captures, as Malcolm writes them
+        run: plugin/.github/bench/zeek.sh "ghcr.io/idaholab/malcolm/zeek:${{ needs.resolve.outputs.version }}" bench
+      - name: Resolve the NetBox version
+        id: netbox
+        run: |
+          ref=$(git ls-remote --tags --refs https://github.com/netbox-community/netbox.git 'v4.7.*' \
+            | sed 's#.*/##' | grep -E '^v4\.7\.[0-9]+$' | sort -V | tail -1)
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: netbox-community/netbox
+          ref: ${{ steps.netbox.outputs.ref }}
+          path: netbox
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: netbox/requirements.txt
+      - name: Install NetBox and the plugin
+        run: |
+          sed -i 's/psycopg\[c,pool\]/psycopg[binary,pool]/' netbox/requirements.txt
+          pip install -r netbox/requirements.txt
+          pip install -e plugin
+          cp plugin/.github/ci/configuration.py netbox/netbox/netbox/configuration.py
+          mkdir -p netbox/netbox/project-static/docs
+      - name: Migrate
+        working-directory: netbox/netbox
+        run: python manage.py migrate --no-input >/dev/null
+      - name: Measure and compare
+        working-directory: netbox/netbox
+        run: python manage.py shell -c "exec(open('$BENCH_DIR/measure.py').read())"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-results
+          path: |
+            bench/results/
+            bench/zeek-version.txt
+            bench/run/*/zeek.out

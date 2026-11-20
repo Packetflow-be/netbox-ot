@@ -1,0 +1,503 @@
+{
+  "parse": {
+    "bacnet-ip": {
+      "requests": 13521,
+      "access": {
+        "control": 505,
+        "other": 18,
+        "program": 64,
+        "read": 12907,
+        "write": 27
+      },
+      "unclassified": {}
+    },
+    "bsap": {
+      "requests": 4,
+      "access": {
+        "no function": 4
+      },
+      "unclassified": {}
+    },
+    "dnp3": {
+      "requests": 635,
+      "access": {
+        "control": 509,
+        "no function": 29,
+        "read": 97
+      },
+      "unclassified": {}
+    },
+    "dns": {
+      "requests": 61,
+      "access": {
+        "no function": 61
+      },
+      "unclassified": {}
+    },
+    "ethernet-ip": {
+      "requests": 694,
+      "access": {
+        "no function": 1,
+        "other": 178,
+        "read": 513,
+        "unclassified": 1,
+        "write": 1
+      },
+      "unclassified": {
+        "Set Attributes Single": 1
+      }
+    },
+    "genisys_tcp": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "hart-ip": {
+      "requests": 2800,
+      "access": {
+        "no function": 2800
+      },
+      "unclassified": {}
+    },
+    "http": {
+      "requests": 93,
+      "access": {
+        "no function": 93
+      },
+      "unclassified": {}
+    },
+    "icmp": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "modbus-tcp": {
+      "requests": 28,
+      "access": {
+        "control": 1,
+        "read": 14,
+        "write": 13
+      },
+      "unclassified": {}
+    },
+    "omron-fins": {
+      "requests": 105,
+      "access": {
+        "control": 10,
+        "no function": 2,
+        "program": 6,
+        "read": 43,
+        "unclassified": 36,
+        "write": 8
+      },
+      "unclassified": {
+        "Error Clear": 3,
+        "Message Read | Message Clear | FAL/FALS Read": 3,
+        "Connection Data Read": 2,
+        "Volume Label Create Delete": 2,
+        "Access Right Acquire": 1,
+        "Access Right Forced Acquire": 1,
+        "Access Right Release": 1,
+        "Broadcast Test Data Send": 1,
+        "Broadcast Test Results Read": 1,
+        "Data Link Status Read": 1,
+        "Data Link Table Read": 1,
+        "Data Link Table Write": 1,
+        "Loop Back Test": 1,
+        "Program Area Protect": 1,
+        "Program Area Protect Clear": 1
+      }
+    },
+    "opc-ua": {
+      "requests": 682,
+      "access": {
+        "control": 5,
+        "no function": 131,
+        "other": 134,
+        "read": 380,
+        "unclassified": 2,
+        "write": 30
+      },
+      "unclassified": {
+        "RegisterServer2Request": 2
+      }
+    },
+    "profinet": {
+      "requests": 1961,
+      "access": {
+        "no function": 1961
+      },
+      "unclassified": {}
+    },
+    "roc_plus_tcp": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "roc_plus_udp": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "s7comm": {
+      "requests": 59,
+      "access": {
+        "control": 1,
+        "other": 3,
+        "read": 41,
+        "unclassified": 3,
+        "write": 11
+      },
+      "unclassified": {
+        "Compress PLC memory": 1,
+        "PLC Copy Ram to Rom": 1,
+        "PLC Start / Stop": 1
+      }
+    },
+    "s7comm-plus": {
+      "requests": 34,
+      "access": {
+        "read": 6,
+        "write": 28
+      },
+      "unclassified": {}
+    },
+    "synchrophasor_tcp": {
+      "requests": 10,
+      "access": {
+        "no function": 10
+      },
+      "unclassified": {}
+    },
+    "synchrophasor_udp": {
+      "requests": 2,
+      "access": {
+        "no function": 2
+      },
+      "unclassified": {}
+    },
+    "tcp/10002": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/1153": {
+      "requests": 9,
+      "access": {
+        "no function": 9
+      },
+      "unclassified": {}
+    },
+    "tcp/12345": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/4712": {
+      "requests": 2,
+      "access": {
+        "no function": 2
+      },
+      "unclassified": {}
+    },
+    "tcp/4840": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/49493": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/49494": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/49508": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/49509": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/50475": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/50476": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/50486": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/50487": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/50512": {
+      "requests": 2,
+      "access": {
+        "no function": 2
+      },
+      "unclassified": {}
+    },
+    "tcp/50513": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/50514": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/50583": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/50584": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/5678": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/57224": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/57229": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/57230": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/57238": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/57239": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/57246": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/57247": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/58491": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/58526": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/58527": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/58528": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/58529": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/58552": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/58553": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/58565": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "tcp/58566": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "udp/12345": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "udp/138": {
+      "requests": 3,
+      "access": {
+        "no function": 3
+      },
+      "unclassified": {}
+    },
+    "udp/17500": {
+      "requests": 2,
+      "access": {
+        "no function": 2
+      },
+      "unclassified": {}
+    },
+    "udp/1947": {
+      "requests": 2,
+      "access": {
+        "no function": 2
+      },
+      "unclassified": {}
+    },
+    "udp/32107": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "udp/40713": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "udp/4712": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "udp/58543": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "udp/59419": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    },
+    "udp/63329": {
+      "requests": 1,
+      "access": {
+        "no function": 1
+      },
+      "unclassified": {}
+    }
+  }
+}

@@ -48,6 +48,9 @@ class Command(BranchCommand):
         parser.add_argument('--large', action='store_true',
                             help='The large demo plant instead (35 zones, about 200 flows, no devices), on its own '
                                  'site: to see the access map and the lists at the size of a real plant')
+        parser.add_argument('--capture', action='store_true',
+                            help='The capture demo instead: a site imported from a public network trace (the DFRWS '
+                                 '2023 "Troubled Elevator" challenge, Apache-2.0), on its own site')
         parser.add_argument('--user', help='Record the changes under this user (default: the first superuser)')
 
     def handle(self, *args, **options):
@@ -57,6 +60,23 @@ class Command(BranchCommand):
         if user is None and self.db_alias != DEFAULT_DB_ALIAS:
             self.stderr.write('No superuser to log the changes under (use --user): a merge of this branch will not '
                               'bring the demo to main', self.style.WARNING)
+        if options['large'] and options['capture']:
+            raise CommandError('--large and --capture are two separate demo sites: create them one at a time')
+        if options['capture']:
+            from netbox_ot import demo_capture
+            if not options['delete'] and Site.objects.filter(slug=demo_capture.SITE_SLUG).exists():
+                raise CommandError(f'The demo site "{demo_capture.SITE_SLUG}" already exists; remove it first with '
+                                   f'--capture --delete')
+            with transaction.atomic(using=self.db_alias), change_logging(user):
+                if options['delete']:
+                    demo_capture.delete_capture()
+                    self.stdout.write(self.style.SUCCESS('Capture demo removed'))
+                else:
+                    site, stats = demo_capture.create_capture(log=lambda m: self.stdout.write(f'  {m}'))
+                    self.stdout.write(self.style.SUCCESS(
+                        f'Capture demo created from {demo_capture.TITLE}: open the site "{site}" and its Access map '
+                        f'tab'))
+            return
         if options['large']:
             from netbox_ot import demo_large
             if not options['delete'] and Site.objects.filter(slug=demo_large.SITE_SLUG).exists():

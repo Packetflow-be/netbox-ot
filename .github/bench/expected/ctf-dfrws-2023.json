@@ -1,0 +1,85 @@
+{
+  "parse": {
+    "dhcp": {
+      "requests": 4,
+      "access": {
+        "no function": 4
+      },
+      "unclassified": {}
+    },
+    "dns": {
+      "requests": 69,
+      "access": {
+        "no function": 69
+      },
+      "unclassified": {}
+    },
+    "icmp": {
+      "requests": 4,
+      "access": {
+        "no function": 4
+      },
+      "unclassified": {}
+    },
+    "modbus-tcp": {
+      "requests": 61764,
+      "access": {
+        "unclassified": 61764
+      },
+      "unclassified": {
+        "PROGRAM_UNITY": 61764
+      }
+    },
+    "udp/138": {
+      "requests": 40,
+      "access": {
+        "no function": 40
+      },
+      "unclassified": {}
+    },
+    "udp/1740": {
+      "requests": 259,
+      "access": {
+        "no function": 259
+      },
+      "unclassified": {}
+    },
+    "udp/1741": {
+      "requests": 259,
+      "access": {
+        "no function": 259
+      },
+      "unclassified": {}
+    },
+    "udp/1742": {
+      "requests": 259,
+      "access": {
+        "no function": 259
+      },
+      "unclassified": {}
+    },
+    "udp/1743": {
+      "requests": 253,
+      "access": {
+        "no function": 253
+      },
+      "unclassified": {}
+    }
+  },
+  "import": {
+    "flows": [
+      "Elevator cell (supervisory) -> Elevator cell (control): - [no class]",
+      "Elevator cell (supervisory) -> Elevator cell (control): modbus-tcp [unclassified] tcp/502",
+      "Elevator cell (supervisory) -> Elevator cell: - [no class] udp/67",
+      "Elevator cell -> Elevator cell (supervisory): - [no class]",
+      "Elevator cell -> Elevator cell (supervisory): dns [no class] udp/137, udp/5355"
+    ],
+    "findings": {
+      "error undecided-into-control": 1,
+      "info no-accountable": 3,
+      "info no-risk-assessment": 3,
+      "info no-sl-target": 3,
+      "warning flow-without-conduit": 5
+    }
+  }
+}

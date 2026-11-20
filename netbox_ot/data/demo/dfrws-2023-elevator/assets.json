@@ -1,0 +1,49 @@
+[
+ {
+  "ip": "192.168.10.45",
+  "open_ports": [
+   502
+  ],
+  "purdue_level": "1",
+  "zone": "Elevator cell"
+ },
+ {
+  "ip": "192.168.10.101",
+  "zone": "Elevator cell"
+ },
+ {
+  "ip": "192.168.10.110",
+  "zone": "Elevator cell"
+ },
+ {
+  "ip": "192.168.10.119",
+  "zone": "Elevator cell"
+ },
+ {
+  "ip": "192.168.10.121",
+  "purdue_level": "2",
+  "zone": "Elevator cell"
+ },
+ {
+  "ip": "192.168.10.130",
+  "purdue_level": "2",
+  "zone": "Elevator cell"
+ },
+ {
+  "ip": "192.168.10.138",
+  "zone": "Elevator cell"
+ },
+ {
+  "ip": "192.168.10.164",
+  "purdue_level": "2",
+  "zone": "Elevator cell"
+ },
+ {
+  "ip": "192.168.10.241",
+  "zone": "Elevator cell"
+ },
+ {
+  "ip": "192.168.10.242",
+  "zone": "Elevator cell"
+ }
+]

@@ -1,0 +1,52 @@
+{
+  "_comment": "Public ICS captures for the Malcolm bench (.github/bench/README.md). Downloaded at run time from the data-v1 release of SackOfHacks/ICS-PCAP-Challenges, which mirrors them unmodified under their own licences, and checked against the SHA-256 below. Nothing here is redistributed by netbox-ot.",
+  "mirror": "https://github.com/SackOfHacks/ICS-PCAP-Challenges/releases/download/data-v1",
+  "datasets": [
+    {
+      "id": "ctf-dfrws-2023",
+      "title": "DFRWS 2023 Forensic Challenge: The Troubled Elevator",
+      "credit": "DFRWS; Security and Forensics Engineering (SAFE) Lab, Virginia Commonwealth University",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/dfrws/dfrws2023-challenge",
+      "asset": "ctf-dfrws-2023.tar.part000",
+      "sha256": "23e4858e7c93cbda5b80314559d17d7b3c5ceba93771e371e6b620537cd19d1b",
+      "import": {"zone_map": "zones/ctf-dfrws-2023.csv", "split_all": true}
+    },
+    {
+      "id": "training-cybics",
+      "title": "CybICS training platform: incident modules",
+      "credit": "Matthias Niedermaier (CybICS)",
+      "licence": "MIT",
+      "source": "https://github.com/mniedermaier/CybICS",
+      "asset": "training-cybics.tar.part000",
+      "sha256": "58a854df260d69d9e34e2b9e4c3b387f829cb1476ec93aeed55fbb823351ce44"
+    },
+    {
+      "id": "cisa-icsnpp-test-traces",
+      "title": "CISA ICSNPP parser test traces",
+      "credit": "CISA and Idaho National Laboratory (ICSNPP)",
+      "licence": "BSD-3-Clause",
+      "source": "https://github.com/cisagov/ICSNPP",
+      "asset": "cisa-icsnpp-test-traces.tar.part000",
+      "sha256": "0bb107a56e0947559e0f57d1942f696461fd33743df9820eca85a19bee9aaa9b"
+    },
+    {
+      "id": "maynard-iec104-testbed",
+      "title": "IEC 60870-5-104 testbed traffic",
+      "credit": "Peter Maynard, Queen's University Belfast (doi:10.6084/m9.figshare.6133457.v1)",
+      "licence": "CC-BY-4.0",
+      "source": "https://doi.org/10.6084/m9.figshare.6133457.v1",
+      "asset": "maynard-iec104-testbed.tar.part000",
+      "sha256": "c8a94fb5e9ad2485cd0b0e15c2624b8b9ced7d7333ccdaf36c7203b124bf545f"
+    },
+    {
+      "id": "netresec-industroyer2",
+      "title": "Industroyer2 IEC-104 traffic",
+      "credit": "Netresec (Erik Hjelmvik)",
+      "licence": "CC-BY-4.0",
+      "source": "https://www.netresec.com/?page=Blog&month=2022-04&post=Industroyer2-IEC-104-Analysis",
+      "asset": "netresec-industroyer2.tar.part000",
+      "sha256": "5879472b18b4564e5e326c8673f7a88452bcb19b3acc266a6a6e6ff0fd802abb"
+    }
+  ]
+}
