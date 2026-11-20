@@ -5,6 +5,15 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
 
 ## Unreleased
 
+### Features
+
+- **`ot_demo --capture`**: a demo site imported from a real capture, the network trace of the DFRWS 2023
+  Forensic Challenge "The Troubled Elevator" (DFRWS; SAFE Lab, Virginia Commonwealth University; Apache-2.0),
+  as Malcolm's Zeek and the importer read it: three stations sending Schneider programming requests to the
+  elevator's PLC. The observation files ship in `netbox_ot/data/demo/dfrws-2023-elevator/` with a NOTICE; the
+  bench regenerates them. `--capture --delete` removes the site
+  ([#69](https://github.com/Packetflow-be/netbox-ot/pull/69)).
+
 ### Documentation
 
 - **Using netbox-ot with Malcolm**: [docs/malcolm.md](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/malcolm.md)

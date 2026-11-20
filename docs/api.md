@@ -63,7 +63,7 @@ Paginate every list query, as for NetBox's own objects: `pagination: {limit: 50}
 
 | Command | Does |
 |---|---|
-| `ot_demo [--large] [--delete]` | Creates (or removes) the fictional demo plant; `--large` is a second plant of 35 zones and about 200 flows |
+| `ot_demo [--large \| --capture] [--delete]` | Creates (or removes) the fictional demo plant; `--large` is a second plant of 35 zones and about 200 flows; `--capture` a site imported from a public capture (DFRWS 2023 elevator) |
 | `ot_import <dir> --site <slug> ...` | Imports Zeek logs or observation files ([Importer](importer.md)) |
 | `ot_check [--site <slug>] [--fail-on ...] [--json]` | Runs the consistency checks; exit status 1 on findings |
 | `ot_rules [--site <slug>] [--device <firewall>] [--format csv\|json]` | Exports firewall rules |

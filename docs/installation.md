@@ -117,6 +117,13 @@ With netbox-docker: `docker compose exec netbox /opt/netbox/netbox/manage.py ot_
 `ot_demo --large` creates a second, larger plant on its own site (35 zones, about 200 flows, no devices) to
 see the access map and the lists at the size of a real plant; `ot_demo --large --delete` removes it.
 
+`ot_demo --capture` creates a site from a real capture instead of an invented one: the network trace of the
+[DFRWS 2023 Forensic Challenge "The Troubled Elevator"](https://github.com/dfrws/dfrws2023-challenge) (DFRWS;
+SAFE Lab, Virginia Commonwealth University; Apache-2.0), as Malcolm's Zeek and the importer read it. Three
+stations send Schneider programming requests (Modbus function 90) to the elevator's PLC. The data is aggregated
+requests only; [NOTICE.md](../netbox_ot/data/demo/dfrws-2023-elevator/NOTICE.md) says where it comes from and how
+it was made. `ot_demo --capture --delete` removes it.
+
 ## Configuration
 
 All settings are optional; these are the defaults.
