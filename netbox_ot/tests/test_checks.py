@@ -199,6 +199,37 @@ class ChecksTest(TestCase):
         self.assertEqual([f.name for f in access_map_flows(site=site)],
                          ['d office writes', 'c hmi writes', 'b office reads', 'a hmi reads'])
 
+    def test_unclassified_requests_fail_closed(self):
+        from netbox_ot.accessmap import access_map_flows, attention
+        from netbox_ot.exposure import may_change_flow
+        from netbox_ot.filtersets import FlowFilterSet
+        site = Site.objects.create(name='Unclassified', slug='unclassified')
+        eng = Zone.objects.create(name='Engineering', slug='eng-u', site=site, purdue_level='2')
+        plc = Zone.objects.create(name='PLC', slug='plc-u', site=site, purdue_level='1')
+        Flow.objects.create(name='a hmi reads', source_zone=eng, destination_zone=plc, access=['read'])
+        umas = Flow.objects.create(name='b engineering', source_zone=eng, destination_zone=plc,
+                                   access=['read', 'unclassified'])
+        Flow.objects.create(name='c hmi writes', source_zone=eng, destination_zone=plc, access=['write'])
+        found = {f.message for f in run_checks(site=site, checks=['undecided-into-control'])}
+        self.assertEqual(found, {
+            'b engineering reaches control zone PLC (requests nobody could classify) and nobody decided whether it '
+            'is allowed',
+            'c hmi writes reaches control zone PLC (write) and nobody decided whether it is allowed',
+        })
+        # Ranked with the writes, ahead of the reads; drawn heavy; counted as needing attention
+        self.assertEqual([f.name for f in access_map_flows(site=site)],
+                         ['b engineering', 'c hmi writes', 'a hmi reads'])
+        self.assertTrue(may_change_flow(umas))
+        self.assertFalse(umas.is_modifying)
+        self.assertEqual(attention(access_map_flows(site=site))['undecided_into_control'], 2)
+        qs = FlowFilterSet({'access': ['unclassified']}, Flow.objects.all()).qs
+        self.assertEqual(list(qs.values_list('name', flat=True)), ['b engineering'])
+        # A verdict settles it, as for any other flow
+        umas.allowed = 'yes'
+        umas.save()
+        self.assertEqual({f.obj for f in run_checks(site=site, checks=['undecided-into-control'])}, {
+            Flow.objects.get(name='c hmi writes')})
+
     def test_a_clean_site_has_no_errors_or_warnings(self):
         site = Site.objects.create(name='Clean', slug='clean')
         fw = create_test_device('fw-clean', site=site)

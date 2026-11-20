@@ -209,6 +209,7 @@ def _exposure(site, flows, zones):
         'into_control': into.count(),
         'undecided': flows.filter(exposure.undecided_into_control()).count(),
         'changes': into.filter(exposure.changes()).count(),
+        'unclassified': into.filter(exposure.unclassified()).count(),
         'remote': into.filter(remote_access=True).count(),
         'from_outside': into.filter(exposure.from_outside()).count(),
         'outside_allowed': flows.filter(exposure.outside_into_control()).count(),

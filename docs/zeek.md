@@ -79,7 +79,7 @@ station at .30 in *Cell A (supervisory)*, so their reads and writes to the PLCs 
 
 | Log | Protocol | Function from | Counted |
 |---|---|---|---|
-| `modbus` (Zeek) | Modbus TCP | `func` | every record |
+| `modbus` (Zeek) | Modbus TCP | `func` | `pdu_type` = REQ (Zeek 8 writes responses and exceptions on their own lines); every record without `pdu_type` |
 | `modbus_detailed`, `modbus_read_write_multiple_registers`, `modbus_mask_write_register` (ICSNPP) | Modbus TCP | `func` | `request_response` = REQUEST |
 | `s7comm` (ICSNPP) | S7comm | `subfunction_name` (a User-Data request: `Read SZL` in the group `CPU Functions`), else `function_name` | `is_orig` |
 | `s7comm_plus` (ICSNPP) | S7comm-plus | `function_name`, else `opcode_name` | `is_orig` |
@@ -87,8 +87,8 @@ station at .30 in *Cell A (supervisory)*, so their reads and writes to the PLCs 
 | `enip` (ICSNPP) | EtherNet/IP | `enip_command` | `is_orig` |
 | `dnp3` (Zeek) | DNP3 | `fc_request` | every record |
 | `dnp3_control` (ICSNPP) | DNP3 | `function_code` | `is_orig` |
-| `bacnet`, `bacnet_property`, `bacnet_device_control` (ICSNPP) | BACnet/IP | `pdu_service` | `is_orig` |
-| `opcua_binary` (ICSNPP) | OPC UA | `req_identifier_str`, else the message type | every record |
+| `bacnet`, `bacnet_property`, `bacnet_device_control` (ICSNPP) | BACnet/IP | `pdu_service` | `is_orig`, not an ACK, error, reject or abort PDU, nor a service named `...-ack` or `ERROR: ...` |
+| `opcua_binary` (ICSNPP) | OPC UA | `req_identifier_str`, else the message type; *Undecoded message* for a service message the parser could not read (an encrypted session) | every record |
 | `omron_fins_general` (ICSNPP) | Omron FINS | `command_code` | `icf_data_type` = Command |
 | `hart_ip_general` (ICSNPP) | HART-IP | none | every record |
 | `profinet_io_cm` (ICSNPP) | PROFINET (CM) | `operation_type` | every record |
@@ -98,7 +98,9 @@ station at .30 in *Cell A (supervisory)*, so their reads and writes to the PLCs 
 Every request runs from the connection's originator to its responder (`id.orig_h` -> `id.resp_h`, destination
 port `id.resp_p`). Functions are classified as read, write, control or program by the table in
 `netbox_ot/importers/functions.py`; the names above were checked against the ICSNPP parsers' own test
-output.
+output. A function the table does not have (Schneider UMAS as Modbus `PROGRAM_UNITY`, a CIP service ICSNPP logs as
+`unknown`, an *Undecoded message*) makes the flow *unclassified*: it counts as possibly changing its destination
+until someone decides it (see [Unclassified requests](access-map.md#unclassified-requests)).
 
 **OPC UA Reverse Connect.** When the originator of an OPC UA connection sent a ReverseHello (`RHE`), the server
 opened the connection and the client sends the requests over it. Those records then count the other way round:
@@ -109,8 +111,8 @@ from the responder (the client) to the originator (the server), with the client'
 (`mqtt_publish`, `from_client` T) that the broker delivered to another client (`from_client` F) or that another
 client subscribed to (`mqtt_subscribe`, MQTT wildcards `+` and `#` honoured) becomes a request from the
 publisher to the subscriber *through the broker*: connection *brokered*, the broker's address, its port and the
-topic. Sparkplug B commands (`spBv1.0/<group>/NCMD|DCMD/...`) count as write; other topics are left
-unclassified. The clients' own connections to the broker remain ordinary flows from `conn.log`. MQTT over TLS
+topic. Sparkplug B commands (`spBv1.0/<group>/NCMD|DCMD/...`) count as write; other topics are
+unclassified, so the flow counts as one that may change its subscriber. The clients' own connections to the broker remain ordinary flows from `conn.log`. MQTT over TLS
 (8883) shows only those connections: there is no topic to see.
 
 From `conn.log`, a connection that no protocol log covers becomes a request with the protocol Zeek identified

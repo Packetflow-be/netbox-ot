@@ -137,7 +137,10 @@ class Command(BranchCommand):
                 if iz.modifying:
                     who = ', '.join(sorted(iz.modifying_senders, key=ipaddress.ip_address)[:5])
                     line += f', {iz.modifying} of them write/control/program (from {who})'
-                self.stdout.write(self.style.WARNING(line) if iz.modifying else line)
+                if iz.unclassified:
+                    who = ', '.join(sorted(iz.unclassified_senders, key=ipaddress.ip_address)[:5])
+                    line += f', {iz.unclassified} of them unclassified: they may change their destination (from {who})'
+                self.stdout.write(self.style.WARNING(line) if iz.modifying or iz.unclassified else line)
                 self.stdout.write(f'    {inside_zone_advice(iz)}')
 
         # A dry run skips event tracking: no change log entries and no webhooks for rolled-back work
