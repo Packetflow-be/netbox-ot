@@ -16,7 +16,21 @@ python3 /usr/local/bin/netbox_install_plugins.py
 grep -q "'netbox_ot'" /etc/netbox/config/plugins.py || { echo "netbox_ot was not added to PLUGINS"; exit 1; }
 echo "PLUGINS after Malcolm's installer: $(grep -E '^PLUGINS' /etc/netbox/config/plugins.py)"
 
-$PY manage.py check
+if ! $PY manage.py check >/tmp/check.log 2>&1; then
+  cat /tmp/check.log
+  # Malcolm's own netbox_healthcheck_plugin (django-health-check) reads EMAIL_BACKEND, which Django 6.1 (NetBox 4.7)
+  # refuses once MAILERS is set: NetBox does not start at all. That is Malcolm's to fix before it moves to 4.7, not
+  # netbox-ot's; the job built on 4.7 sets DROP_BROKEN_MALCOLM_PLUGINS to go on without it and say so.
+  if [ "${DROP_BROKEN_MALCOLM_PLUGINS:-}" = 1 ] && grep -q 'health_check' /tmp/check.log; then
+    echo "::warning::Malcolm's netbox_healthcheck_plugin breaks NetBox 4.7 (EMAIL_BACKEND with MAILERS); removed from PLUGINS for this test"
+    sed -i "s/'netbox_healthcheck_plugin', *//; s/, *'netbox_healthcheck_plugin'//" /etc/netbox/config/plugins.py
+    grep -E '^PLUGINS' /etc/netbox/config/plugins.py
+    $PY manage.py check
+  else
+    exit 1
+  fi
+fi
+$PY manage.py migrate --no-input >/dev/null
 $PY manage.py showmigrations netbox_ot
 $PY manage.py ot_demo
 $PY manage.py ot_check --fail-on never | tail -1

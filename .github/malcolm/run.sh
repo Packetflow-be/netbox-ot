@@ -12,6 +12,7 @@ rm -rf "$plugins/netbox-ot/.git"
 docker run --rm --network host \
   -e DB_HOST=localhost -e DB_PORT=5432 -e DB_NAME=netbox -e DB_USER=netbox -e DB_PASSWORD=netbox \
   -e REDIS_HOST=localhost -e REDIS_CACHE_HOST=localhost \
+  -e DROP_BROKEN_MALCOLM_PLUGINS="${DROP_BROKEN_MALCOLM_PLUGINS:-}" \
   -e SECRET_KEY="ci-only-not-a-secret-$(printf 'x%.0s' {1..40})" \
   -e API_TOKEN_PEPPER_1="ci-only-not-a-secret-$(printf 'y%.0s' {1..40})" \
   -v "$plugins:/opt/netbox-custom-plugins" \

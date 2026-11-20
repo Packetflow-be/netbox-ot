@@ -1,0 +1,55 @@
+{
+  "parse": {
+    "icmp": {
+      "requests": 2,
+      "access": {
+        "no function": 2
+      },
+      "unclassified": {}
+    },
+    "ntp": {
+      "requests": 5,
+      "access": {
+        "no function": 5
+      },
+      "unclassified": {}
+    },
+    "opc-ua": {
+      "requests": 28273,
+      "access": {
+        "no function": 28204,
+        "other": 64,
+        "read": 5
+      },
+      "unclassified": {}
+    },
+    "port scan": {
+      "requests": 532,
+      "access": {
+        "no function": 532
+      },
+      "unclassified": {}
+    },
+    "spicy_iec104": {
+      "requests": 5,
+      "access": {
+        "no function": 5
+      },
+      "unclassified": {}
+    },
+    "ssh": {
+      "requests": 5,
+      "access": {
+        "no function": 5
+      },
+      "unclassified": {}
+    },
+    "udp/138": {
+      "requests": 12,
+      "access": {
+        "no function": 12
+      },
+      "unclassified": {}
+    }
+  }
+}

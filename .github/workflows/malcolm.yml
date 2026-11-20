@@ -116,6 +116,9 @@ jobs:
           DOCKER_BUILDKIT=1 docker build -q -f Dockerfiles/netbox.Dockerfile -t malcolm-netbox:4.7 .
       - name: netbox-ot in Malcolm's NetBox on 4.7
         working-directory: plugin
+        env:
+          # Malcolm's health-check plugin does not start on NetBox 4.7 (see netbox-in-malcolm.sh)
+          DROP_BROKEN_MALCOLM_PLUGINS: '1'
         run: .github/malcolm/run.sh malcolm-netbox:4.7
 
   bench:
