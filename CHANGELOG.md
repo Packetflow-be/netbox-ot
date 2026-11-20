@@ -5,6 +5,15 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
 
 ## Unreleased
 
+### Breaking Changes
+
+- **Unclassified requests count as possibly changing the controllers** ([#67](https://github.com/Packetflow-be/netbox-ot/issues/67)):
+  after a re-import, flows into a control zone that carry requests the importer could not classify are
+  `undecided-into-control` findings until someone decides them, so `ot_check --fail-on error` can fail where it
+  passed before. Until now such requests were dropped from the flow's access, and a flow of nothing but them (a
+  Schneider engineering station's 123,529 UMAS requests to its PLC in a public capture) raised no finding at all.
+  Flows already in NetBox keep their access until the next import.
+
 ### Features
 
 - **`ot_demo --capture`**: a demo site imported from a real capture, the network trace of the DFRWS 2023
@@ -13,6 +22,28 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
   elevator's PLC. The observation files ship in `netbox_ot/data/demo/dfrws-2023-elevator/` with a NOTICE; the
   bench regenerates them. `--capture --delete` removes the site
   ([#69](https://github.com/Packetflow-be/netbox-ot/pull/69)).
+
+### Enhancements
+
+- **Access class *unclassified*** ([#67](https://github.com/Packetflow-be/netbox-ot/issues/67)): a request of an
+  industrial protocol whose function is not in the importer's tables (or that `flows.json` itself marks
+  `"access": "unclassified"`) gives its flow this class, and the evidence lists who sent such requests. The exposure
+  rules fail closed on it: it counts for `undecided-into-control`, ranks with the flows that write, control or
+  program on the access map, draws a heavy arrow on the access map and the machine drawing, and shows as a badge in
+  the diagram's detail panel. The site overview counts the flows into control zones that carry it. A request
+  without a function (a connection setup) or of an IT protocol does not count. The import's report of traffic
+  inside a zone counts unclassified requests and their senders too.
+- **Zeek: encrypted OPC UA** is no longer invisible: a service message the ICSNPP parser could not read (a
+  SignAndEncrypt session) counts as the function *Undecoded message*, which is unclassified.
+
+### Fixes
+
+- **Zeek 8 Modbus responses counted as requests**: Zeek 8 writes requests and responses on their own lines
+  (`pdu_type` REQ/RESP), and every response, exception responses included, counted as one more request. Only REQ
+  lines count now; logs of older Zeek releases (one line per transaction) count as before.
+- **BACnet acks and errors counted as requests**: a response on the originator's side (`SIMPLE_ACK` to a
+  WriteProperty, `ERROR_PDU` to a ReinitializeDevice, `read-property-multiple-ack` in `bacnet_property.log`) counted
+  as a request, sometimes as a write or control. ACK, error, reject and abort PDUs are skipped.
 
 ### Documentation
 

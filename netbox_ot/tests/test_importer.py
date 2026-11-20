@@ -218,8 +218,37 @@ class BuildPlanTest(SimpleTestCase):
         s7 = flows_by_protocol['s7comm']
         self.assertIn('Vendor thing x1 [unclassified]', s7.evidence)
         self.assertIn('Odd one x1 [program]', s7.evidence)
-        self.assertEqual(s7.access, ['program'])  # unclassified adds no class
+        # A function no table knows: the flow may change the PLC, and the evidence names who sent it
+        self.assertEqual(s7.access, ['program', 'unclassified'])
+        self.assertIn('May change the destination, requests nobody could classify (check what they do): ES '
+                      '(10.0.1.1)', s7.evidence)
         self.assertIn('Protocol not recognised: VendorProto', flows_by_protocol[''].evidence)
+        self.assertEqual(flows_by_protocol[''].access, [])
+
+    def test_unclassified_requests_fail_closed(self):
+        assets = [{'ip': '10.0.0.1', 'zone': 'Cell'}, {'ip': '10.0.0.2', 'zone': 'Cell'},
+                  {'ip': '10.0.1.1', 'zone': 'Eng', 'role': 'ES'}, {'ip': '10.0.2.1', 'zone': 'Office'}]
+        flows = [
+            # A vendor's engineering channel (Schneider UMAS over Modbus function 90): could be anything
+            {'src': '10.0.1.1', 'dst': '10.0.0.1', 'proto': 'modbus', 'func': 'PROGRAM_UNITY', 'count': 70},
+            # Read only, but a session record without a function (a connection setup) is no request to judge
+            {'src': '10.0.2.1', 'dst': '10.0.0.1', 'proto': 's7comm', 'func': 'Read Variable'},
+            {'src': '10.0.2.1', 'dst': '10.0.0.1', 'proto': 's7comm'},
+            # Not an industrial protocol: no table to miss
+            {'src': '10.0.2.1', 'dst': '10.0.0.1', 'proto': 'http', 'func': 'GET'},
+            # The source says itself that it cannot tell
+            {'src': '10.0.2.1', 'dst': '10.0.0.1', 'proto': 'VendorProto', 'access': 'unclassified'},
+            # Inside the cell: not a flow, but reported
+            {'src': '10.0.0.2', 'dst': '10.0.0.1', 'proto': 'modbus', 'func': 'unknown-100', 'count': 3},
+        ]
+        plan = build_plan(assets, flows, {})
+        by_key = self._flows(plan)
+        self.assertEqual(by_key[('Eng', 'Cell', 'modbus-tcp')].access, ['unclassified'])
+        self.assertEqual(by_key[('Office', 'Cell', 's7comm')].access, ['read'])
+        self.assertEqual(by_key[('Office', 'Cell', 'http')].access, [])
+        self.assertEqual(by_key[('Office', 'Cell', '')].access, ['unclassified'])
+        cell = plan.inside['Cell']
+        self.assertEqual((cell.modifying, cell.unclassified, cell.unclassified_senders), (0, 3, {'10.0.0.2'}))
 
     def test_open_port_alone_creates_no_service(self):
         assets = [

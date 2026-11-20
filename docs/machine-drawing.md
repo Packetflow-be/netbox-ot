@@ -52,7 +52,8 @@ with remote access marked. It is built from what NetBox already holds: there is 
 - **Right**: the zones that flows go to or come from. One arrow per frame, outside zone and direction, with
   each flow's protocol and ports on it. As on the access map: the colour is the verdict (green allowed, amber
   no decision yet, red not allowed or expired), dashed is remote access, dotted is a connection opened from
-  the inside (reverse connect, a broker), and a heavy arrow writes, controls or programs its destination.
+  the inside (reverse connect, a broker), and a heavy arrow writes, controls or programs its destination, or carries
+  requests the import could not classify.
 
 The drawing is SVG rendered on the server, so it prints and works without JavaScript; hover a cable or an
 arrow for its full description.

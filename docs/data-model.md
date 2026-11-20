@@ -22,7 +22,7 @@
 - **System requirement** (IEC 62443-3-3) and its **status per zone or conduit**: see
   [System requirements](requirements.md).
 - **Flow**: what actually runs between two zones, in one direction: source and destination zone,
-  **protocol** and **ports** (`tcp/102`), **access** (read, write, control, program), remote access
+  **protocol** and **ports** (`tcp/102`), **access** (read, write, control, program; unclassified for requests the import could not classify), remote access
   flag, the **ordered path** it takes (hops: devices, VMs or tunnels), the conduit that carries it,
   the **connection model** (client/server, reverse connect, through a broker with the broker's zone and the
   topics, or published without a session; see [Connection models](#connection-models)), first/last seen and
