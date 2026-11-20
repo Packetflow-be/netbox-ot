@@ -108,11 +108,16 @@ jobs:
           netbox=v4.7
           initializers=$(git ls-remote --tags --refs https://github.com/tobiasge/netbox-initializers.git 'v4.7.*' \
             | sed 's#.*/##' | sort -V | tail -1)
-          echo "NetBox $netbox, netbox-initializers $initializers" | tee -a "$GITHUB_STEP_SUMMARY"
+          # Malcolm's health-check plugin as pinned (0.3.0) does not start on NetBox 4.7; its newest release is tried
+          healthcheck=$(git ls-remote --tags --refs https://github.com/netbox-community/netbox-healthcheck-plugin.git 'v*' \
+            | sed 's#.*/v##' | sort -V | tail -1)
+          echo "NetBox $netbox, netbox-initializers $initializers, netbox-healthcheck-plugin $healthcheck" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
           cd malcolm
           sed -i "s#^FROM netboxcommunity/netbox:v[0-9.]*#FROM netboxcommunity/netbox:$netbox#" Dockerfiles/netbox.Dockerfile
           sed -i "s#^ENV NETBOX_INITIALIZERS_VERSION=.*#ENV NETBOX_INITIALIZERS_VERSION=\"$initializers\"#" Dockerfiles/netbox.Dockerfile
-          grep -E '^FROM|NETBOX_INITIALIZERS_VERSION=' Dockerfiles/netbox.Dockerfile
+          sed -i "s#^ENV NETBOX_HEALTHCHECK_VERSION=.*#ENV NETBOX_HEALTHCHECK_VERSION=\"$healthcheck\"#" Dockerfiles/netbox.Dockerfile
+          grep -E '^FROM|NETBOX_INITIALIZERS_VERSION=|NETBOX_HEALTHCHECK_VERSION=' Dockerfiles/netbox.Dockerfile
           DOCKER_BUILDKIT=1 docker build -q -f Dockerfiles/netbox.Dockerfile -t malcolm-netbox:4.7 .
       - name: netbox-ot in Malcolm's NetBox on 4.7
         working-directory: plugin
