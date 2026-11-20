@@ -85,9 +85,10 @@ jobs:
         run: .github/malcolm/run.sh "ghcr.io/idaholab/malcolm/netbox:${{ needs.resolve.outputs.version }}"
 
   netbox-47:
-    # Malcolm's NetBox Dockerfile at the same release, built on the newest NetBox 4.7 (and the matching
-    # netbox-initializers). Shows whether Malcolm and netbox-ot work together once Malcolm moves to 4.7. Not a gate:
-    # a failure here can be Malcolm's build on a NetBox it does not support yet, not netbox-ot.
+    # Malcolm's NetBox Dockerfile at the same release, built on the newest NetBox 4.7 (with the matching
+    # netbox-initializers and the newest netbox-healthcheck-plugin). Shows whether Malcolm and netbox-ot work together
+    # once Malcolm moves to 4.7. Not a gate: a failure here can be Malcolm's build on a NetBox it does not support
+    # yet, not netbox-ot. Drop this job once Malcolm ships 4.7 and the job above runs for real.
     name: Malcolm ${{ needs.resolve.outputs.version }} NetBox, built on NetBox 4.7
     needs: resolve
     runs-on: ubuntu-latest

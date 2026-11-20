@@ -19,6 +19,11 @@ moved to a new NetBox minor release three to four months after it came out (4.5 
 came out on 2 September 2026. CI checks every week which NetBox the latest Malcolm release ships, and builds
 Malcolm's NetBox image on NetBox 4.7 with netbox-ot installed the Malcolm way (see [CI](#ci)).
 
+What that build shows (Malcolm v26.10.0, November 2026): Malcolm's NetBox Dockerfile works on NetBox 4.7 with
+three version changes: the base image, netbox-initializers v4.7.0, and netbox-healthcheck-plugin 0.4.0 (the
+pinned 0.3.0 stops NetBox from starting on Django 6.1). With those, Malcolm's installer installs netbox-ot and
+the full test suite passes inside Malcolm's NetBox, beside its own plugins and under its `BASE_PATH`.
+
 Until then, the importer works on Malcolm's Zeek logs with netbox-ot in a NetBox 4.7 of its own (see below).
 
 ## Installing it into Malcolm
