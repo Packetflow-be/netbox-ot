@@ -146,6 +146,7 @@
             el('td', {}, [
               document.createTextNode([flow.protocol, flow.ports, flow.connection].filter(Boolean).join(' ')),
               flow.remote ? el('span', { class: 'badge text-bg-secondary ms-1', text: labels.remote }) : null,
+              flow.unclassified ? el('span', { class: 'badge text-bg-warning ms-1', text: labels.unclassified }) : null,
             ]),
             el('td', {}, [badge(flow.verdict)]),
           ]));

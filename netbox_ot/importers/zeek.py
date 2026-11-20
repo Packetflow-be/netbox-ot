@@ -5,9 +5,11 @@ import like any other source. No database access here: zones come in as a ZoneMa
 
   logs      *.log and *.log.gz, Zeek TSV or JSON lines, rotated files included (conn.00:00:00-01:00:00.log.gz).
             The stream name is the file name up to the first dot.
-  requests  from the protocol logs listed in STREAMS: one per request (responses are skipped), from the
+  requests  from the protocol logs listed in STREAMS: one per request (responses are skipped: Zeek's Modbus
+            responses and exceptions by pdu_type, BACnet acks and errors by PDU type or service name), from the
             connection's originator to its responder (id.orig_h -> id.resp_h, port id.resp_p), with the function
-            the parser names (Modbus function, S7 function, CIP service, DNP3 function code, ...).
+            the parser names (Modbus function, S7 function, CIP service, DNP3 function code, ...). An OPC UA
+            service message the parser could not read (an encrypted session) is the function "Undecoded message".
   conn.log  connections whose uid has no protocol-log request: the protocol Zeek identified from the payload
             (the "service" field: rdp, ssh, ssl, modbus, ...), or else "tcp/<port>" (not identified; no protocol
             is guessed from the port). TCP attempts that were never answered (S0, REJ, ...) are skipped, and so
@@ -39,10 +41,31 @@ from pathlib import Path
 
 from .observations import protocol_value
 
+# Responses carry no action of their own; counted as requests they would show up with a function no table has
+# ("READ_COILS_EXCEPTION", "read-property-multiple-ack") and, now that such requests count as possibly changing
+# the destination, make every poll look suspect
+BACNET_RESPONSES = {'COMPLEX_ACK', 'SIMPLE_ACK', 'SEGMENT_ACK', 'ERROR_PDU', 'REJECT_PDU', 'ABORT_PDU'}
+
+
+def _modbus_request(record):
+    # Zeek 8 writes one line per PDU, pdu_type REQ or RESP (an exception response is "<FUNC>_EXCEPTION"); older
+    # releases one line per transaction, without pdu_type
+    return record.get('pdu_type') in (None, 'REQ')
+
+
+def _bacnet_request(record):
+    # bacnet.log names a response by its PDU type; bacnet_property.log only by the service ("read-property-ack",
+    # "ERROR: read_property")
+    if record.get('is_orig') not in ('T', True) or record.get('pdu_type') in BACNET_RESPONSES:
+        return False
+    service = str(record.get('pdu_service') or '').strip().lower()
+    return not (service.endswith('-ack') or service.startswith(('error', 'reject', 'abort')))
+
+
 # Protocol logs: stream -> (protocol name for the importer, function fields in order of preference,
-# how to tell a request: (field, values) or None when every record is a request)
+# how to tell a request: (field, values), a function of the record, or None when every record is a request)
 STREAMS = {
-    'modbus': ('modbus', ('func',), None),
+    'modbus': ('modbus', ('func',), _modbus_request),
     'modbus_detailed': ('modbus', ('func',), ('request_response', ('REQUEST',))),
     'modbus_read_write_multiple_registers': ('modbus', ('func',), ('request_response', ('REQUEST',))),
     'modbus_mask_write_register': ('modbus', ('func',), ('request_response', ('REQUEST',))),
@@ -54,9 +77,9 @@ STREAMS = {
     'enip': ('enip', ('enip_command',), ('is_orig', ('T', True))),
     'dnp3': ('dnp3', ('fc_request',), None),
     'dnp3_control': ('dnp3', ('function_code',), ('is_orig', ('T', True))),
-    'bacnet': ('bacnet', ('pdu_service',), ('is_orig', ('T', True))),
-    'bacnet_property': ('bacnet', ('pdu_service',), ('is_orig', ('T', True))),
-    'bacnet_device_control': ('bacnet', ('pdu_service',), ('is_orig', ('T', True))),
+    'bacnet': ('bacnet', ('pdu_service',), _bacnet_request),
+    'bacnet_property': ('bacnet', ('pdu_service',), _bacnet_request),
+    'bacnet_device_control': ('bacnet', ('pdu_service',), _bacnet_request),
     'opcua_binary': ('opcua', ('req_identifier_str',), None),
     'omron_fins_general': ('fins', ('command_code',), ('icf_data_type', ('Command (0)',))),
     'hart_ip_general': ('hart-ip', (), None),
@@ -187,12 +210,24 @@ def _ipv4(value):
 
 OPCUA_MESSAGES = {'HEL': 'Hello', 'ACK': 'Acknowledge', 'OPN': 'OpenSecureChannel', 'CLO': 'CloseSecureChannel',
                   'RHE': 'ReverseHello'}
+OPCUA_UNDECODED = 'Undecoded message'
+
+
+def _is_request(record, request):
+    if callable(request):
+        return request(record)
+    field, values = request
+    return record.get(field) in values
 
 
 def _function(record, fields):
     """The first function field that is set; 'Run (0x0401)' becomes 'Run'."""
     if record.get('msg_type') in OPCUA_MESSAGES and not record.get('req_identifier_str'):
         return OPCUA_MESSAGES[record['msg_type']]
+    if record.get('msg_type') == 'MSG' and not (record.get('req_identifier_str') or record.get('res_identifier_str')):
+        # A service message whose body the parser could not read: a session with SignAndEncrypt. What the client
+        # asks stays unknown, so it is a request with a function no table classifies
+        return OPCUA_UNDECODED
     for name in fields:
         value = record.get(name)
         if value not in UNSET:
@@ -322,10 +357,8 @@ def to_observations(logs, zone_map, captures=None):
 
     for stream, (proto, func_fields, request) in STREAMS.items():
         for record in logs.get(stream, []):
-            if request is not None:
-                field, values = request
-                if record.get(field) not in values:
-                    continue
+            if request is not None and not _is_request(record, request):
+                continue
             src, dst = _ipv4(record.get('id.orig_h')), _ipv4(record.get('id.resp_h'))
             if not keep(src, dst):
                 continue

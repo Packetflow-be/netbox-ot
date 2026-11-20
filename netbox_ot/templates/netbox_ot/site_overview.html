@@ -88,16 +88,17 @@ manage.py ot_import &lt;logs&gt; --site {{ object.slug }} --zone-map zones.csv -
           {% with e=overview.exposure %}
             {% if e.undecided %}
               <div class="alert alert-danger py-2 mb-3">
-                {% blocktrans count n=e.undecided %}{{ n }} flow into a control zone changes it, is remote access or comes from outside, and nobody decided whether it may.{% plural %}{{ n }} flows into control zones change them, are remote access or come from outside, and nobody decided whether they may.{% endblocktrans %}
+                {% blocktrans count n=e.undecided %}{{ n }} flow into a control zone changes it or may, is remote access or comes from outside, and nobody decided whether it is allowed.{% plural %}{{ n }} flows into control zones change them or may, are remote access or come from outside, and nobody decided whether they are allowed.{% endblocktrans %}
                 <a href="{{ e.undecided_url }}" class="d-print-none">{% trans "Decide them" %}</a>
               </div>
             {% elif e.into_control %}
-              <p><i class="mdi mdi-check text-success"></i> {% trans "Every flow into a control zone that changes it, is remote access or comes from outside has a verdict." %}</p>
+              <p><i class="mdi mdi-check text-success"></i> {% trans "Every flow into a control zone that changes it or may, is remote access or comes from outside has a verdict." %}</p>
             {% endif %}
             <dl class="row mb-0 ot-exposure">
               <dt class="col-9">{% trans "Control zones (level 0-1 or safety)" %}</dt><dd class="col-3">{{ e.control_zones }}</dd>
               <dt class="col-9">{% trans "Flows into control zones" %} <a href="{{ e.into_control_url }}" class="d-print-none small">{% trans "access map" %}</a></dt><dd class="col-3">{{ e.into_control }}</dd>
               <dt class="col-9 ps-4">{% trans "that write, control or program" %}</dt><dd class="col-3">{{ e.changes }}</dd>
+              <dt class="col-9 ps-4">{% trans "with requests nobody could classify" %}</dt><dd class="col-3{% if e.unclassified %} text-warning{% endif %}">{{ e.unclassified }}</dd>
               <dt class="col-9 ps-4">{% trans "remote access" %}</dt><dd class="col-3">{{ e.remote }}</dd>
               <dt class="col-9 ps-4">{% trans "from a DMZ, enterprise or external zone" %}</dt><dd class="col-3">{{ e.from_outside }}</dd>
               <dt class="col-9 ps-4">{% trans "allowed straight from outside" %}</dt><dd class="col-3{% if e.outside_allowed %} text-warning{% endif %}">{{ e.outside_allowed }}</dd>

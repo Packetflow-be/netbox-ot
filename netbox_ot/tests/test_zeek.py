@@ -165,6 +165,57 @@ class ToObservationsTest(SimpleTestCase):
         self.assertEqual(plan.hosts['10.10.10.99'].zone, 'Cell')
 
 
+class ResponsesAndUndecodedTest(SimpleTestCase):
+    """What Zeek 8 and the ICSNPP parsers write today: responses on their own lines, encrypted OPC UA sessions."""
+
+    def _observe(self, logs):
+        with tempfile.TemporaryDirectory() as tmp:
+            for stream, records in logs.items():
+                with open(Path(tmp, f'{stream}.log'), 'w') as f:
+                    for i, record in enumerate(records):
+                        f.write(json.dumps({'ts': T0 + i, 'uid': 'C1', 'id.orig_h': '10.10.20.5', 'id.orig_p': 50000,
+                                            'id.resp_h': '10.10.10.10', **record}) + '\n')
+            _assets, flows, _summary = zeek.to_observations(zeek.read_logs(tmp), ZONES)
+        return {(f['proto'], f.get('func', '')): f['count'] for f in flows}
+
+    def test_modbus_responses_and_exceptions_are_not_requests(self):
+        requests = self._observe({'modbus': [
+            {'id.resp_p': 502, 'func': 'READ_COILS', 'pdu_type': 'REQ'},
+            {'id.resp_p': 502, 'func': 'READ_COILS', 'pdu_type': 'RESP'},
+            {'id.resp_p': 502, 'func': 'WRITE_SINGLE_COIL', 'pdu_type': 'REQ'},
+            {'id.resp_p': 502, 'func': 'WRITE_SINGLE_COIL_EXCEPTION', 'pdu_type': 'RESP'},
+        ]})
+        self.assertEqual(requests, {('modbus', 'READ_COILS'): 1, ('modbus', 'WRITE_SINGLE_COIL'): 1})
+
+    def test_bacnet_acks_and_errors_are_not_requests(self):
+        requests = self._observe({
+            'bacnet': [
+                {'id.resp_p': 47808, 'is_orig': True, 'pdu_type': 'CONFIRMED_REQUEST', 'pdu_service': 'write_property'},
+                {'id.resp_p': 47808, 'is_orig': True, 'pdu_type': 'SIMPLE_ACK', 'pdu_service': 'write_property'},
+                {'id.resp_p': 47808, 'is_orig': True, 'pdu_type': 'ERROR_PDU', 'pdu_service': 'reinitialize_device'},
+            ],
+            'bacnet_property': [
+                {'id.resp_p': 47808, 'is_orig': True, 'pdu_service': 'read-property-request'},
+                {'id.resp_p': 47808, 'is_orig': True, 'pdu_service': 'read-property-multiple-ack'},
+                {'id.resp_p': 47808, 'is_orig': True, 'pdu_service': 'ERROR: read_property'},
+            ],
+        })
+        self.assertEqual(requests, {('bacnet', 'write_property'): 1, ('bacnet', 'read-property-request'): 1})
+
+    def test_an_undecoded_opc_ua_message_is_an_unclassified_request(self):
+        requests = self._observe({'opcua_binary': [
+            {'id.resp_p': 4840, 'msg_type': 'HEL'},
+            {'id.resp_p': 4840, 'msg_type': 'MSG', 'req_identifier_str': 'WriteRequest'},
+            {'id.resp_p': 4840, 'msg_type': 'MSG', 'res_identifier_str': 'PublishResponse'},
+            {'id.resp_p': 4840, 'msg_type': 'MSG'},  # SignAndEncrypt: the body is not readable
+        ]})
+        self.assertEqual(requests, {('opcua', 'Hello'): 1, ('opcua', 'WriteRequest'): 1, ('opcua', ''): 1,
+                                    ('opcua', 'Undecoded message'): 1})
+        assets = [{'ip': '10.10.20.5', 'zone': 'Control room'}, {'ip': '10.10.10.10', 'zone': 'Cell PLCs'}]
+        flows = [{'src': '10.10.20.5', 'dst': '10.10.10.10', 'proto': 'opcua', 'func': 'Undecoded message'}]
+        self.assertEqual(build_plan(assets, flows, {}).flows[0].access, ['unclassified'])
+
+
 class PortScanTest(SimpleTestCase):
     """A scanner tries 120 ports on a PLC; three answer with data, one only completes the handshake."""
 
