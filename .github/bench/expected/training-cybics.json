@@ -8,10 +8,10 @@
       "unclassified": {}
     },
     "modbus-tcp": {
-      "requests": 2986,
+      "requests": 1493,
       "access": {
-        "read": 2978,
-        "write": 8
+        "read": 1489,
+        "write": 4
       },
       "unclassified": {}
     },

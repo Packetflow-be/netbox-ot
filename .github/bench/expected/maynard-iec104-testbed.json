@@ -17,11 +17,14 @@
     "opc-ua": {
       "requests": 28273,
       "access": {
-        "no function": 28204,
+        "no function": 5,
         "other": 64,
-        "read": 5
+        "read": 5,
+        "unclassified": 28199
       },
-      "unclassified": {}
+      "unclassified": {
+        "Undecoded message": 28199
+      }
     },
     "port scan": {
       "requests": 532,

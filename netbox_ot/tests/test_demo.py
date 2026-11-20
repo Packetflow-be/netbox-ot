@@ -124,9 +124,13 @@ class DemoCommandTest(TestCase):
         # to the PLC are a flow on the access map
         self.assertLessEqual({'Elevator cell (control)', 'Elevator cell (supervisory)'},
                              {z.name for z in Zone.objects.filter(site=site)})
-        self.assertTrue(Flow.objects.filter(source_zone__name='Elevator cell (supervisory)',
-                                            destination_zone__name='Elevator cell (control)',
-                                            protocol='modbus-tcp').exists())
+        # Their Schneider UMAS programming requests (Modbus FC 90) are in no table: unclassified, so the exposure
+        # rules fail closed and the flow is an undecided flow into control
+        into_plc = Flow.objects.get(source_zone__name='Elevator cell (supervisory)',
+                                    destination_zone__name='Elevator cell (control)', protocol='modbus-tcp')
+        self.assertEqual(into_plc.access, ['unclassified'])
+        self.assertIn('PROGRAM_UNITY', into_plc.evidence)
+        self.assertIn('undecided-into-control', {f.check for f in run_checks(site=site)})
         with self.assertRaisesRegex(CommandError, 'already exists'):
             call_command('ot_demo', '--capture', stdout=StringIO())
         with self.assertRaisesRegex(CommandError, 'one at a time'):

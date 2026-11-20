@@ -1,13 +1,12 @@
 {
   "parse": {
     "bacnet-ip": {
-      "requests": 13955,
+      "requests": 13521,
       "access": {
-        "control": 506,
-        "no function": 2,
-        "other": 447,
+        "control": 505,
+        "other": 18,
         "program": 64,
-        "read": 12909,
+        "read": 12907,
         "write": 27
       },
       "unclassified": {}
@@ -77,16 +76,13 @@
       "unclassified": {}
     },
     "modbus-tcp": {
-      "requests": 52,
+      "requests": 28,
       "access": {
-        "control": 2,
-        "read": 27,
-        "unclassified": 1,
-        "write": 22
+        "control": 1,
+        "read": 14,
+        "write": 13
       },
-      "unclassified": {
-        "READ_HOLDING_REGISTERS_EXCEPTION": 1
-      }
+      "unclassified": {}
     },
     "omron-fins": {
       "requests": 105,
