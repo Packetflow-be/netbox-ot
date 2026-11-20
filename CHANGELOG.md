@@ -3,7 +3,11 @@
 Each release opens with what kind of release it is. Breaking changes are listed under **Breaking Changes**.
 Numbers link to the issue or pull request on GitHub; entries without a number predate the public repository.
 
-## Unreleased
+## 0.8.0 (2026-11-20)
+
+Minor release with one breaking change, enhancements, fixes and new features: the importer fails closed on
+requests it cannot classify and counts Zeek 8/9 Modbus and BACnet correctly, netbox-ot is tested inside Malcolm's
+NetBox and on Malcolm's Zeek, and `ot_demo --capture` adds a site from a real capture. No migrations.
 
 ### Breaking Changes
 

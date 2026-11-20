@@ -18,7 +18,7 @@ plugins*). Install exactly these with this release of netbox-ot:
 
 | netbox-ot | NetBox | netbox-lifecycle | netbox-inventory | netbox-access-paths |
 |---|---|---|---|---|
-| 0.7.x | 4.7 | 1.1.11 | 2.7.1 | 0.2.0 |
+| 0.8.x, 0.7.x | 4.7 | 1.1.11 | 2.7.1 | 0.2.0 |
 | 0.6.x, 0.5.x, 0.4.x, 0.3.x | 4.7 | 1.1.11 | 2.7.1 | (not tested) |
 
 The pins live in [`.github/ci/companions.txt`](../.github/ci/companions.txt). Newer releases of the
