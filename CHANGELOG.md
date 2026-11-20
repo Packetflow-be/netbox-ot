@@ -47,6 +47,11 @@ Numbers link to the issue or pull request on GitHub; entries without a number pr
 
 ### Documentation
 
+- **The demo plant** ([docs/demo.md](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/demo.md)): what is in
+  the public demo and `ot_demo`, drawn level by level (zones and conduits, network and cabling, the machine, the
+  controllers and fieldbus, the flows into the line, remote access, monitoring, the capture site), with the
+  lifecycle and inventory data, the risk assessments and what is wrong in the plant on purpose
+  ([#69](https://github.com/Packetflow-be/netbox-ot/pull/69)).
 - **Using netbox-ot with Malcolm**: [docs/malcolm.md](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/malcolm.md)
   covers where Malcolm keeps its Zeek logs and how to import them, installing netbox-ot as one of Malcolm's custom
   plugins, and the current status: Malcolm v26.10.0 ships NetBox 4.6.10, so netbox-ot does not load there until

@@ -12,6 +12,8 @@ Belgium.
 **Live demo: [netbox-ot.packetflow.be](https://netbox-ot.packetflow.be)**, log in as `demo` / `demo`. A fictional
 plant with the companion plugins beside netbox-ot (netbox-lifecycle, netbox-inventory, netbox-access-paths,
 netbox-topology-views). You can change anything; it is reset every two hours, so don't enter real data.
+[What is in the demo plant](https://github.com/Packetflow-be/netbox-ot/blob/main/docs/demo.md): its zones, network,
+machine, controllers and flows, drawn level by level, and what is wrong in it on purpose.
 
 [![PyPI](https://img.shields.io/pypi/v/netbox-ot)](https://pypi.org/project/netbox-ot/)
 [![CI](https://github.com/Packetflow-be/netbox-ot/actions/workflows/ci.yml/badge.svg)](https://github.com/Packetflow-be/netbox-ot/actions/workflows/ci.yml)
