@@ -101,3 +101,42 @@ class DemoCommandTest(TestCase):
         self.assertFalse(Prefix.objects.filter(description__startswith='IEC 62443 demo').exists())
         self.assertFalse(Contact.objects.filter(description='IEC 62443 demo').exists())
         call_command('ot_demo', stdout=StringIO())  # and again
+
+    def test_capture_create_and_delete(self):
+        from dcim.models import DeviceRole
+
+        from netbox_ot import demo_capture
+
+        out = StringIO()
+        call_command('ot_demo', '--capture', stdout=out)
+        self.assertIn('Capture demo created', out.getvalue())
+        site = Site.objects.get(slug=demo_capture.SITE_SLUG)
+        # The credit travels with the data: on the site itself and in the NOTICE next to the files
+        self.assertIn('Apache License 2.0', site.comments)
+        self.assertIn('DFRWS', site.comments)
+        self.assertTrue((demo_capture.DATA / 'NOTICE.md').exists())
+        # One controller at level 1, three stations at level 2, each with its address as primary IP
+        devices = Device.objects.filter(site=site)
+        self.assertEqual(devices.count(), 4)
+        self.assertTrue(all(d.primary_ip4 for d in devices))
+        self.assertEqual(devices.filter(role__slug='capture-demo-plc').count(), 1)
+        # Split like ot_import --split-all: controller and stations in zones of their own, so the stations' requests
+        # to the PLC are a flow on the access map
+        self.assertLessEqual({'Elevator cell (control)', 'Elevator cell (supervisory)'},
+                             {z.name for z in Zone.objects.filter(site=site)})
+        self.assertTrue(Flow.objects.filter(source_zone__name='Elevator cell (supervisory)',
+                                            destination_zone__name='Elevator cell (control)',
+                                            protocol='modbus-tcp').exists())
+        with self.assertRaisesRegex(CommandError, 'already exists'):
+            call_command('ot_demo', '--capture', stdout=StringIO())
+        with self.assertRaisesRegex(CommandError, 'one at a time'):
+            call_command('ot_demo', '--capture', '--large', stdout=StringIO())
+
+        call_command('ot_demo', '--capture', '--delete', stdout=StringIO())
+        self.assertFalse(Site.objects.filter(slug=demo_capture.SITE_SLUG).exists())
+        for model in (Zone, Conduit, Flow, IndustrialService):
+            self.assertEqual(model.objects.count(), 0, model)
+        self.assertFalse(Device.objects.filter(name__startswith='elevator-').exists())
+        self.assertFalse(IPAddress.objects.filter(description=demo_capture.PREFIX).exists())
+        self.assertFalse(DeviceRole.objects.filter(slug__startswith='capture-demo-').exists())
+        call_command('ot_demo', '--capture', stdout=StringIO())  # and again
